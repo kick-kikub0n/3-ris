@@ -1,0 +1,2670 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>3'ris</title>
+<style>
+  :root{
+    --bg: #0d0f1a;
+    --panel: #171a2b;
+    --panel-2: #1f2338;
+    --line: #2a2f4a;
+    --text: #e8e8f0;
+    --muted: #7d81a3;
+    --left: #6a8dff;
+    --center: #e8e8f0;
+    --right: #ff6ac1;
+    --danger: #ff4f6d;
+    --gold: #f4d35e;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0; padding:0; background:var(--bg); color:var(--text);
+    font-family: system-ui, -apple-system, "Hiragino Sans", "Yu Gothic", sans-serif;
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior: none;
+  }
+  #app{
+    max-width: 980px; margin: 0 auto; padding: 14px 10px 28px;
+    min-height: 100vh;
+  }
+  h1{
+    font-size: 20px; letter-spacing: 0.04em; margin: 0 0 2px;
+    font-weight: 800; text-align:center;
+  }
+  .subtitle{ color: var(--muted); font-size: 12px; margin: 0 0 12px; }
+
+  .link-bar{
+    height: 3px; border-radius: 3px; margin: 0 0 14px;
+    background: linear-gradient(90deg, var(--left), var(--center), var(--right));
+    opacity: 0.55; transition: opacity .15s, transform .15s;
+  }
+  .link-bar.pulse{ opacity: 1; transform: scaleY(2.2); }
+
+  .stats{
+    display:flex; gap: 10px; flex-wrap: wrap; justify-content:center; margin-bottom: 12px;
+  }
+  .stat{
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+    padding: 6px 12px; font-size: 12px; color: var(--muted); min-width: 74px;
+  }
+  .stat b{ display:block; font-size: 16px; color: var(--text); font-weight:700; margin-top:2px; }
+
+  #bonusBanner{
+    display:none;
+    background: linear-gradient(90deg, rgba(244,211,94,0.16), rgba(244,211,94,0.05));
+    border: 1px solid var(--gold); border-radius: 10px;
+    padding: 10px 12px; margin-bottom: 12px;
+  }
+  #bonusBanner.show{ display:flex; flex-direction:column; gap:8px; align-items:center; }
+  #bonusBanner .bonus-title{ color: var(--gold); font-weight:800; font-size: 13.5px; text-align:center; }
+  #bonusBanner .bonus-hint{ color: var(--muted); font-size: 11.5px; text-align:center; }
+  #bonusBanner .bonus-controls{ display:flex; gap:8px; }
+  #bonusBanner .pad-btn{ padding: 8px 16px; font-size:14px; }
+  #bonusBanner .pad-btn#bonusCancel{ padding: 6px 14px; font-size:12.5px; color: var(--muted); }
+
+  /* 5列消去ボーナスをキャンセルする際のワンクッション確認 */
+  #bonusCancelConfirm{
+    position:fixed; inset:0; background:rgba(6,7,13,0.72);
+    display:flex; align-items:center; justify-content:center;
+    opacity:0; pointer-events:none; transition:opacity .15s; z-index:30;
+  }
+  #bonusCancelConfirm.show{ opacity:1; pointer-events:auto; }
+  #bonusCancelConfirm .bonus-cancel-card{
+    width:min(86vw,320px); background:var(--panel); border:1px solid var(--line);
+    border-radius:14px; padding:20px; text-align:center;
+    transform:scale(0.92); transition:transform .15s;
+  }
+  #bonusCancelConfirm.show .bonus-cancel-card{ transform:scale(1); }
+  #bonusCancelConfirm h3{ margin:0 0 10px; font-size:16px; color:var(--danger); }
+  #bonusCancelConfirm p{ margin:0 0 16px; font-size:12.5px; color:var(--muted); line-height:1.8; }
+  .primary-btn.danger{ background: var(--danger); color:#2a0810; }
+
+  #boards{
+    display:flex; gap: 10px; justify-content:center; flex-wrap: wrap;
+    position: relative;
+  }
+  .board-col{ display:flex; flex-direction:column; align-items:center; gap:6px; }
+  .board-label{
+    font-size: 11px; font-weight: 700; letter-spacing: 0.05em;
+    padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line);
+  }
+  .board-label.left{ color: var(--left); border-color: var(--left); }
+  .board-label.center{ color: var(--center); border-color: #4a4f72; }
+  .board-label.right{ color: var(--right); border-color: var(--right); }
+
+  .next-box{
+    display:flex; align-items:center; gap:6px; height: 44px;
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px;
+    padding: 3px 8px;
+  }
+  .next-box .next-label{ font-size: 10px; color: var(--muted); letter-spacing: 0.08em; }
+  .next-box canvas{ display:block; }
+  .next-box.spacer{ visibility: hidden; }
+
+  .next-box.control-btn{
+    justify-content:center; flex-direction:column; gap:1px;
+    text-align:center; cursor:pointer; user-select:none;
+    font-size: 12px; font-weight:700; line-height:1.25;
+    transition: box-shadow .2s, opacity .2s;
+  }
+  .next-box.control-btn:active{ background:#2a2f4a; }
+  .next-box.control-btn.accent{ border-color: var(--gold); color: var(--gold); }
+  .next-box.control-btn.disabled{ opacity:0.35; pointer-events:none; }
+  .next-box.control-btn.flash{ box-shadow: 0 0 0 3px rgba(244,211,94,0.5); }
+  @keyframes bonusBlink{
+    0%, 100% { box-shadow: 0 0 0 3px rgba(244,211,94,0.12); background:#171a33; }
+    50%      { box-shadow: 0 0 16px 5px rgba(244,211,94,0.95); background:#3a3560; }
+  }
+  .next-box.control-btn.blink-alert{
+    animation: bonusBlink 0.5s ease-in-out 6;
+  }
+  .control-btn .ctrl-label{ display:block; font-size: 12px; font-weight:700; line-height:1.2; }
+  .control-btn .ctrl-sub{ display:block; font-size: 11px; font-weight:700; line-height:1.15; }
+
+  .board-wrap{ position:relative; }
+  canvas.board{
+    background: var(--panel); border-radius: 6px; display:block;
+    border: 1px solid var(--line);
+  }
+  .board-wrap.left canvas{ box-shadow: 0 0 0 1px rgba(106,141,255,0.25) inset; }
+  .board-wrap.right canvas{ box-shadow: 0 0 0 1px rgba(255,106,193,0.25) inset; }
+
+  .standby{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    color: var(--muted); font-size: 11px; letter-spacing: 0.1em; pointer-events:none;
+    background: rgba(13,15,26,0.35);
+  }
+
+  .bonus-toast{
+    position:absolute; top: 40%; left:50%; transform: translate(-50%,-50%) scale(0.8);
+    font-size: 30px; font-weight: 800; color: var(--gold); opacity:0; pointer-events:none;
+    text-shadow: 0 0 14px rgba(244,211,94,0.7);
+    transition: opacity .15s, transform .15s;
+    white-space: nowrap; z-index: 5;
+  }
+  .bonus-toast.show{ opacity:1; transform: translate(-50%,-50%) scale(1.05); }
+  .bonus-toast.tspin{ font-size: 15px; color: var(--right); text-shadow: 0 0 14px rgba(255,106,193,0.7); }
+
+  /* パーフェクトクリア: 盤面ごとではなく#boards全体に大きく表示する演出 */
+  .pc-sparkle{
+    position:absolute; inset:0; pointer-events:none; z-index:9; opacity:0;
+    background:
+      radial-gradient(circle at 28% 32%, rgba(244,211,94,0.55), transparent 40%),
+      radial-gradient(circle at 72% 62%, rgba(244,211,94,0.4), transparent 45%),
+      radial-gradient(circle at 50% 78%, rgba(255,255,255,0.3), transparent 35%);
+  }
+  .pc-sparkle.show{ animation: pcSparkleFlash 1.6s ease-out forwards; }
+  @keyframes pcSparkleFlash{
+    0%{ opacity:0; }
+    18%{ opacity:.6; }
+    100%{ opacity:0; }
+  }
+  .pc-toast{
+    position:absolute; left:50%; top:50%; transform:translate(-50%,-50%) scale(0.6);
+    opacity:0; pointer-events:none; z-index:10; text-align:center; white-space:nowrap;
+  }
+  .pc-toast .pc-main{
+    font-size:38px; font-weight:800; color:var(--gold); letter-spacing:.02em;
+    text-shadow: 0 0 18px rgba(244,211,94,0.85), 0 0 42px rgba(244,211,94,0.4);
+  }
+  .pc-toast .pc-sub{
+    margin-top:4px; font-size:11px; letter-spacing:.2em; color:var(--muted);
+  }
+  .pc-toast.show{ animation: pcPop 1.6s cubic-bezier(.2,.9,.25,1) forwards; }
+  @keyframes pcPop{
+    0%{ opacity:0; transform:translate(-50%,-50%) scale(0.5); }
+    12%{ opacity:1; transform:translate(-50%,-50%) scale(1.15); }
+    22%{ transform:translate(-50%,-50%) scale(1); }
+    80%{ opacity:1; transform:translate(-50%,-50%) scale(1); }
+    100%{ opacity:0; transform:translate(-50%,-50%) scale(1.04); }
+  }
+
+  #controls{
+    margin-top: 16px; display:flex; flex-direction:column; align-items:center; gap: 10px;
+  }
+  .pad-row{ display:flex; gap: 10px; }
+  .pad-btn{
+    background: var(--panel-2); border: 1px solid var(--line); color: var(--text);
+    border-radius: 10px; padding: 12px 18px; font-size: 15px; font-weight:700;
+    user-select:none; min-width: 56px; text-align:center;
+    transition: box-shadow .2s, opacity .2s;
+  }
+  .pad-btn:active{ background: #2a2f4a; }
+  .pad-btn.wide{ min-width: 120px; }
+  .pad-btn.hold{
+    min-width: 64px; padding: 8px 6px; font-size: 12px; white-space: nowrap;
+    border-color:#8fd6ff; color:#8fd6ff; line-height:1.3;
+    display:flex; align-items:center; justify-content:center;
+  }
+  #btnSoft, #btnHard{ padding-top: 8px; padding-bottom: 8px; }
+  .pad-btn.sound{ min-width: 44px; padding: 12px 14px; font-size: 17px; }
+  .pad-btn.sound.muted{ color: var(--muted); border-color: var(--line); opacity: 0.65; }
+  .pad-btn.pattern{ min-width: 56px; padding-top: 10px; padding-bottom: 10px; font-size: 12px; line-height: 1.35; }
+
+  .hold-slot{
+    height:30px; border:1px dashed #8fd6ff; border-radius:8px;
+    background:var(--panel-2); display:flex; align-items:center; justify-content:center;
+    gap:5px; font-size:9.5px; color:var(--muted); transition: box-shadow .15s; margin-bottom:4px;
+    box-shadow: inset 0 0 0 1px rgba(143,214,255,0.35);
+  }
+  .hold-slot canvas{ display:block; }
+  .hold-slot .hold-empty{ font-size: 9.5px; color: var(--muted); }
+  .hold-slot.flash{ box-shadow: 0 0 0 2px #8fd6ff !important; }
+  .pad-btn.accent{ border-color: var(--gold); color: var(--gold); }
+  .pad-btn.danger{ border-color: var(--danger); color: var(--danger); }
+  .pad-btn.disabled{ opacity: 0.35; pointer-events:none; }
+  .pad-btn.flash{ box-shadow: 0 0 0 3px rgba(244,211,94,0.5); }
+
+  .hint{ color: var(--muted); font-size: 11px; text-align:center; max-width: 480px; line-height:1.7; }
+
+  #overlay{
+    position: fixed; inset:0; background: rgba(8,9,16,0.92);
+    display:flex; align-items:center; justify-content:center; z-index: 20;
+    padding: 20px;
+  }
+  #overlay.hidden{ display:none; }
+  .card{
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+    padding: 22px 22px 26px; max-width: 420px; width:100%;
+  }
+  .card h2{ margin: 0 0 10px; font-size: 20px; }
+  .card p{ color: var(--muted); font-size: 13px; line-height: 1.8; margin: 6px 0; }
+  .rule-list{ margin: 10px 0 16px; padding-left: 0; list-style:none; }
+  .rule-list li{
+    font-size: 12.5px; color: var(--text); line-height:1.7; padding-left: 16px;
+    position: relative; margin-bottom: 6px;
+  }
+  .rule-list li::before{ content:"・"; position:absolute; left:0; color: var(--muted); }
+  .primary-btn{
+    display:block; width:100%; margin-top: 14px; padding: 12px; border:none;
+    border-radius: 10px; background: var(--gold); color:#221a00; font-weight:800;
+    font-size: 15px;
+  }
+  .primary-btn:active{ opacity: 0.85; }
+  .primary-btn.secondary{ background: var(--panel-2); color: var(--text); border: 1px solid var(--line); }
+  .final-score-line{ margin: 10px 0 0; font-size: 24px; font-weight:800; color: var(--gold); text-align:center; }
+  .final-score-line b{ color: var(--gold); }
+  .final-stats-row{
+    display:flex; justify-content:center; gap:14px; margin: 8px 0 0;
+    font-size: 13px; color: var(--muted);
+  }
+  .final-stats-row b{ color: var(--text); }
+  .go-title{ text-align:center; font-size: 26px; }
+  .hs-box{ margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+  .hs-title{ font-size: 13px; font-weight:700; letter-spacing: 0.12em; color: var(--muted); text-align:center; margin-bottom: 6px; }
+  .hs-new-record{ text-align:center; font-weight:800; color: var(--right); font-size: 14px; margin: 0 0 8px; }
+  .hs-table{ width:100%; border-collapse: collapse; }
+  .hs-table td{ border: 1px solid var(--line); padding: 5px 8px; font-size: 13px; text-align:center; }
+  .hs-table .hs-rank{ width: 32px; color: var(--muted); }
+  .hs-table .hs-score{ font-weight:700; color: var(--text); }
+  .hs-empty{ text-align:center; font-size: 12px; color: var(--muted); }
+</style>
+</head>
+<body>
+<div id="app">
+  <h1>3'ris</h1>
+  <div class="link-bar" id="linkBar"></div>
+
+  <div class="stats">
+    <div class="stat">Score<b id="scoreVal">0</b></div>
+    <div class="stat">Level<b id="levelVal">1</b></div>
+    <div class="stat">Line<b id="linesVal">0</b></div>
+    <div class="stat">Wave<b id="waveVal">0</b></div>
+  </div>
+
+  <div id="bonusBanner">
+    <div class="bonus-title" id="bonusTitle">Bonus</div>
+    <div class="bonus-hint" id="bonusHint">↑↓で位置を選び、決定で消去します</div>
+    <div class="bonus-controls">
+      <div class="pad-btn" id="bonusUp">↑</div>
+      <div class="pad-btn accent" id="bonusConfirm">消す</div>
+      <div class="pad-btn" id="bonusDown">↓</div>
+    </div>
+    <div class="pad-btn" id="bonusCancel">キャンセル</div>
+  </div>
+
+  <div id="bonusCancelConfirm">
+    <div class="bonus-cancel-card">
+      <h3 id="bonusCancelConfirmTitle">キャンセルしますか？</h3>
+      <p id="bonusCancelConfirmDesc">この5列消去ボーナスはストックされません。キャンセルすると今回の使用権は消滅します。</p>
+      <button class="primary-btn danger" id="bonusCancelConfirmYes">使用権を放棄してキャンセル</button>
+      <button class="primary-btn secondary" id="bonusCancelConfirmNo">戻る</button>
+    </div>
+  </div>
+
+  <div id="boards">
+    <div class="pc-sparkle" id="pcSparkle"></div>
+    <div class="pc-toast" id="pcToast">
+      <div class="pc-main" id="pcMain"></div>
+      <div class="pc-sub">PERFECT CLEAR BONUS</div>
+    </div>
+    <div class="board-col">
+      <div class="hold-slot" id="holdSlotLeft"><span class="hold-empty" id="holdEmptyLeft">空</span><canvas id="holdCanvasLeft" style="display:none;"></canvas></div>
+      <div class="next-box control-btn" id="btnPause">一時停止</div>
+      <div class="board-wrap left">
+        <canvas class="board" id="canvasLeft"></canvas>
+        <div class="standby" id="standbyLeft">Stand-by</div>
+        <div class="bonus-toast" id="toastLeft"></div>
+      </div>
+    </div>
+    <div class="board-col">
+      <div class="hold-slot" id="holdSlotCenter"><span class="hold-empty" id="holdEmptyCenter">空</span><canvas id="holdCanvasCenter" style="display:none;"></canvas></div>
+      <div class="next-box" id="nextBox">
+        <span class="next-label">NEXT</span>
+        <canvas id="nextCanvas" width="32" height="32"></canvas>
+      </div>
+      <div class="board-wrap center">
+        <canvas class="board" id="canvasCenter"></canvas>
+        <div class="bonus-toast" id="toastCenter"></div>
+      </div>
+    </div>
+    <div class="board-col">
+      <div class="hold-slot" id="holdSlotRight"><span class="hold-empty" id="holdEmptyRight">空</span><canvas id="holdCanvasRight" style="display:none;"></canvas></div>
+      <div class="next-box control-btn accent disabled" id="btnUseBonus">
+        <span class="ctrl-label" id="bonusBtnLabel">3列消去</span>
+        <span class="ctrl-sub" id="bonusBtnSub">ボーナス</span>
+      </div>
+      <div class="board-wrap right">
+        <canvas class="board" id="canvasRight"></canvas>
+        <div class="bonus-toast" id="toastRight"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="controls">
+    <div class="pad-row">
+      <div class="pad-btn" id="btnLeft">←</div>
+      <div class="pad-btn" id="btnRotateCCW">↺</div>
+      <div class="pad-btn" id="btnRotate">↻</div>
+      <div class="pad-btn" id="btnRight">→</div>
+    </div>
+    <div class="pad-row">
+      <div class="pad-btn wide" id="btnSoft">ソフトドロップ ↓</div>
+      <div class="pad-btn hold" id="btnHold">ホールド</div>
+      <div class="pad-btn wide accent" id="btnHard">ハードドロップ</div>
+    </div>
+    <div class="pad-row">
+      <div class="pad-btn sound" id="btnSound">🔊</div>
+      <div class="pad-btn" id="btnInfo">説明</div>
+      <div class="pad-btn pattern" id="btnPattern"><span id="patternBtnLabel">模様</span><br><span id="patternBtnState">OFF</span></div>
+      <div class="pad-btn danger" id="btnRestart">Restart</div>
+    </div>
+    <p class="hint" id="hintText">キーボード: ←→移動 / ↑or Xで右回転 / Zで左回転 / ↓ソフトドロップ / Spaceハードドロップ / Pで一時停止 / Bでボーナス使用<br>3つの盤面はすべて同じ操作で動きます。1つでも積み上がったら終了です。</p>
+  </div>
+</div>
+
+<div id="overlay">
+  <div class="card" id="startCard">
+    <h2 style="text-align:center;">3'ris</h2>
+    <div class="hs-box" id="startHighScores"></div>
+    <button class="primary-btn" id="startJaBtn">日本語でプレイ</button>
+    <button class="primary-btn secondary" id="startEnBtn">Play in English</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  // ---------- 言語 ----------
+  let lang = "ja";
+  const STRINGS = {
+    ja: {
+      pause: "一時停止",
+      resume: "再開",
+      bonusBtnLabel: "3列消去",
+      bonusBtnSub: "ボーナス",
+      softDrop: "ソフト<br>ドロップ ↓",
+      hardDrop: "ハード<br>ドロップ",
+      hold: "ホールド",
+      info: "説明",
+      hint: "キーボード: ←→移動 / ↑or Xで右回転 / Zで左回転 / ↓ソフトドロップ / Spaceハードドロップ / Pで一時停止 / Bでボーナス使用 / Cでホールド<br>3つの盤面はすべて同じ操作で動きます。1つでも積み上がったら終了です。",
+      rulesTitle: "3'ris — ルール",
+      rules: [
+        "中央を基本盤面としたとき、右盤面はピースが90度回転した状態で降ってきます。",
+        "左盤面は中央の1つ前のピースが降ってきます（最初の1手は空です）。",
+        "3盤面は同じ操作で連動して動きます。どこか1つでも積み上がったら終了。",
+        "2盤面同時・3盤面同時でラインを消去するとスコアボーナス。",
+        "一定ウェーブごと及び一定スコア到達ごとに3列消去ボーナスを獲得、1個までストック・任意のタイミングで使用できます。"
+      ],
+      close: "閉じる",
+      bonusTitle5: "3盤面同時消去ボーナス！5列消去(即時消費・スコア加算なし)",
+      bonusTitle3: "3列消去ボーナス使用中",
+      bonusHintScored: "↑↓で位置を選び、決定で消去(消したブロック数×5×レベルを加算)",
+      bonusHintPlain: "↑↓で位置を選び、決定で消去します",
+      bonusConfirm: (n) => "この" + n + "列を消す",
+      bonusCancel: "キャンセル",
+      bonusCancelConfirmTitle: "キャンセルしますか？",
+      bonusCancelConfirmDesc: "この5列消去ボーナスはストックされません。キャンセルすると今回の使用権は消滅します。",
+      bonusCancelConfirmYes: "使用権を放棄してキャンセル",
+      bonusCancelConfirmNo: "戻る",
+      scoreUnit: "点",
+      restartConfirmTitle: "リスタートしますか？",
+      restartConfirmDesc: "現在のスコアや進行状況は失われます。",
+      restartConfirmYes: "リスタートする",
+      restartConfirmCancel: "キャンセル",
+      highScoreTitle: "ハイスコア",
+      noRecords: "まだ記録がありません",
+      newRecordMessage: "ハイスコア更新！",
+      patternLabel: "模様",
+      patternOn: "ON",
+      patternOff: "OFF",
+    },
+    en: {
+      pause: "Pause",
+      resume: "Resume",
+      bonusBtnLabel: "3-Line Clear",
+      bonusBtnSub: "Bonus",
+      softDrop: "Soft<br>Drop ↓",
+      hardDrop: "Hard<br>Drop",
+      hold: "Hold",
+      info: "Info",
+      hint: "Keyboard: ←→ Move / ↑ or X Rotate CW / Z Rotate CCW / ↓ Soft Drop / Space Hard Drop / P Pause / B Use Bonus / C Hold<br>All three boards move together. The game ends if even one board stacks to the top.",
+      rulesTitle: "3'ris — Rules",
+      rules: [
+        "Treating the center board as the base, the right board's piece falls already rotated 90 degrees.",
+        "The left board gets the center board's previous piece (empty on the very first move).",
+        "All three boards move together with the same input. The game ends the moment any one stacks to the top.",
+        "Clearing lines on 2 or 3 boards at once earns a score bonus.",
+        "Every set number of waves and every score milestone grants a 3-line clear bonus — stock up to 1 and use it whenever you like."
+      ],
+      close: "Close",
+      bonusTitle5: "Triple-board clear bonus! Clearing 5 rows (used instantly, no score added)",
+      bonusTitle3: "3-line clear bonus in use",
+      bonusHintScored: "Use ↑↓ to pick a position, confirm to clear (adds cleared blocks × 5 × level to your score)",
+      bonusHintPlain: "Use ↑↓ to pick a position, confirm to clear",
+      bonusConfirm: (n) => "Clear these " + n + " rows",
+      bonusCancel: "Cancel",
+      bonusCancelConfirmTitle: "Cancel this bonus?",
+      bonusCancelConfirmDesc: "This 5-line bonus can't be stocked. If you cancel, you'll forfeit it for this wave.",
+      bonusCancelConfirmYes: "Forfeit and cancel",
+      bonusCancelConfirmNo: "Back",
+      scoreUnit: "pts",
+      restartConfirmTitle: "Restart the game?",
+      restartConfirmDesc: "Your current score and progress will be lost.",
+      restartConfirmYes: "Restart",
+      restartConfirmCancel: "Cancel",
+      highScoreTitle: "High Scores",
+      noRecords: "No records yet",
+      newRecordMessage: "New High Score!",
+      patternLabel: "Pattern",
+      patternOn: "ON",
+      patternOff: "OFF",
+    }
+  };
+
+  function applyStaticTexts(){
+    const S = STRINGS[lang];
+    document.getElementById("bonusBtnLabel").textContent = S.bonusBtnLabel;
+    document.getElementById("bonusBtnSub").textContent = S.bonusBtnSub;
+    document.getElementById("btnSoft").innerHTML = S.softDrop;
+    document.getElementById("btnHard").innerHTML = S.hardDrop;
+    document.getElementById("btnHold").textContent = S.hold;
+    document.getElementById("btnInfo").textContent = S.info;
+    document.getElementById("hintText").innerHTML = S.hint;
+    document.getElementById("btnPause").textContent = paused ? S.resume : S.pause;
+    document.getElementById("bonusCancel").textContent = S.bonusCancel;
+    document.getElementById("bonusCancelConfirmTitle").textContent = S.bonusCancelConfirmTitle;
+    document.getElementById("bonusCancelConfirmDesc").textContent = S.bonusCancelConfirmDesc;
+    document.getElementById("bonusCancelConfirmYes").textContent = S.bonusCancelConfirmYes;
+    document.getElementById("bonusCancelConfirmNo").textContent = S.bonusCancelConfirmNo;
+    document.getElementById("patternBtnLabel").textContent = S.patternLabel;
+  }
+
+  function showInfoOverlay(){
+    playButtonBeepSE();
+    const wasPaused = paused;
+    if(running && !gameOver && mode === "playing") paused = true;
+    const overlay = document.getElementById("overlay");
+    overlay.classList.remove("hidden");
+    const S = STRINGS[lang];
+    document.getElementById("startCard").innerHTML =
+      '<h2>' + S.rulesTitle + '</h2>' +
+      '<ul class="rule-list">' + S.rules.map(r => '<li>' + r + '</li>').join('') + '</ul>' +
+      '<button class="primary-btn" id="closeInfoBtn">' + S.close + '</button>';
+    document.getElementById("closeInfoBtn").addEventListener("click", () => {
+      overlay.classList.add("hidden");
+      paused = wasPaused;
+    });
+  }
+
+  // ---------- 基本定数 ----------
+  const COLS = 10, ROWS = 20;
+  const LOCK_DELAY_MS = 500;   // 接地してからロックされるまでの猶予時間
+  const LOCK_RESET_LIMIT = 15; // 移動・回転によるリセットの上限回数(ガイドライン標準)
+  const TYPES = ["I","O","T","S","Z","J","L"];
+  const COLORS = {
+    I: "#4dd9ec", O: "#f4d35e", T: "#b388ff",
+    S: "#5fd068", Z: "#ef5354", J: "#4d7cff", L: "#ff9f4d"
+  };
+  // 色→ミノ種別の逆引き(色覚多様性配慮の模様描画で、セルの色から元のミノ種別を特定するために使う)
+  const COLOR_TO_TYPE = {};
+  for(const t in COLORS) COLOR_TO_TYPE[COLORS[t]] = t;
+
+  // 色覚多様性配慮: ミノ種別ごとに異なる模様を描画し、色だけに頼らず形でも区別できるようにする。
+  // px,py,size はそのセルの左上座標と一辺の長さ(正方形)。
+  function drawMinoPattern(ctx, px, py, size, type){
+    const cx = px + size / 2, cy = py + size / 2;
+    ctx.save();
+    ctx.strokeStyle = "rgba(0,0,0,0.55)";
+    ctx.fillStyle = "rgba(0,0,0,0.55)";
+    ctx.lineWidth = Math.max(1, size * 0.12);
+    ctx.lineCap = "round";
+    switch(type){
+      case "I": // 縦の二重線
+        ctx.beginPath();
+        ctx.moveTo(px + size * 0.32, py + size * 0.15); ctx.lineTo(px + size * 0.32, py + size * 0.85);
+        ctx.moveTo(px + size * 0.68, py + size * 0.15); ctx.lineTo(px + size * 0.68, py + size * 0.85);
+        ctx.stroke();
+        break;
+      case "O": // 円
+        ctx.beginPath();
+        ctx.arc(cx, cy, size * 0.22, 0, Math.PI * 2);
+        ctx.fill();
+        break;
+      case "T": // 三角形
+        ctx.beginPath();
+        ctx.moveTo(cx, py + size * 0.18);
+        ctx.lineTo(px + size * 0.82, py + size * 0.82);
+        ctx.lineTo(px + size * 0.18, py + size * 0.82);
+        ctx.closePath();
+        ctx.fill();
+        break;
+      case "S": // 斜線(/)
+        ctx.beginPath();
+        ctx.moveTo(px + size * 0.22, py + size * 0.82);
+        ctx.lineTo(px + size * 0.78, py + size * 0.18);
+        ctx.stroke();
+        break;
+      case "Z": // 斜線(\)
+        ctx.beginPath();
+        ctx.moveTo(px + size * 0.22, py + size * 0.18);
+        ctx.lineTo(px + size * 0.78, py + size * 0.82);
+        ctx.stroke();
+        break;
+      case "J": // ひし形
+        ctx.beginPath();
+        ctx.moveTo(cx, py + size * 0.16);
+        ctx.lineTo(px + size * 0.84, cy);
+        ctx.lineTo(cx, py + size * 0.84);
+        ctx.lineTo(px + size * 0.16, cy);
+        ctx.closePath();
+        ctx.fill();
+        break;
+      case "L": // 十字(プラス)
+        ctx.beginPath();
+        ctx.moveTo(cx, py + size * 0.18); ctx.lineTo(cx, py + size * 0.82);
+        ctx.moveTo(px + size * 0.18, cy); ctx.lineTo(px + size * 0.82, cy);
+        ctx.stroke();
+        break;
+    }
+    ctx.restore();
+  }
+
+  const SHAPES = {
+    I: [
+      [[0,1],[1,1],[2,1],[3,1]],
+      [[2,0],[2,1],[2,2],[2,3]],
+      [[0,2],[1,2],[2,2],[3,2]],
+      [[1,0],[1,1],[1,2],[1,3]],
+    ],
+    O: [
+      [[1,0],[2,0],[1,1],[2,1]],
+      [[1,0],[2,0],[1,1],[2,1]],
+      [[1,0],[2,0],[1,1],[2,1]],
+      [[1,0],[2,0],[1,1],[2,1]],
+    ],
+    T: [
+      [[1,0],[0,1],[1,1],[2,1]],
+      [[1,0],[1,1],[2,1],[1,2]],
+      [[0,1],[1,1],[2,1],[1,2]],
+      [[1,0],[0,1],[1,1],[1,2]],
+    ],
+    S: [
+      [[1,0],[2,0],[0,1],[1,1]],
+      [[1,0],[1,1],[2,1],[2,2]],
+      [[1,1],[2,1],[0,2],[1,2]],
+      [[0,0],[0,1],[1,1],[1,2]],
+    ],
+    Z: [
+      [[0,0],[1,0],[1,1],[2,1]],
+      [[2,0],[1,1],[2,1],[1,2]],
+      [[0,1],[1,1],[1,2],[2,2]],
+      [[1,0],[0,1],[1,1],[0,2]],
+    ],
+    J: [
+      [[0,0],[0,1],[1,1],[2,1]],
+      [[1,0],[2,0],[1,1],[1,2]],
+      [[0,1],[1,1],[2,1],[2,2]],
+      [[1,0],[1,1],[0,2],[1,2]],
+    ],
+    L: [
+      [[2,0],[0,1],[1,1],[2,1]],
+      [[1,0],[1,1],[1,2],[2,2]],
+      [[0,1],[1,1],[2,1],[0,2]],
+      [[0,0],[1,0],[1,1],[1,2]],
+    ],
+  };
+
+  const KICKS = [[0,0],[-1,0],[1,0],[0,-1],[-2,0],[2,0]];
+  // Tミノ専用: 下方向へのずらしも試すことで、深い隙間へ潜り込むTスピンを可能にする
+  const TKICKS = [[0,0],[-1,0],[1,0],[0,-1],[-2,0],[2,0],[0,1],[-1,1],[1,1],[0,2]];
+
+  // ---------- ピース列（7種1袋） ----------
+  let sequence = [];
+  function shuffledBag(){
+    const bag = [...TYPES];
+    for(let i=bag.length-1;i>0;i--){
+      const j = Math.floor(Math.random()*(i+1));
+      [bag[i],bag[j]] = [bag[j],bag[i]];
+    }
+    return bag;
+  }
+  function getSeq(i){
+    while(sequence.length <= i) sequence.push(...shuffledBag());
+    return sequence[i];
+  }
+
+  // ---------- ボード生成 ----------
+  function createBoard(name, canvas){
+    return {
+      name, canvas, ctx: canvas.getContext("2d"),
+      grid: Array.from({length: ROWS}, () => Array(COLS).fill(null)),
+      piece: null,
+      active: false,
+      locked: true,
+      linesThisWave: 0,
+      clearingRows: null,
+      clearAnimStart: 0,
+      clearAnimTier: "normal",
+      lastRotated: false,
+      b2bCount: 0,
+      b2bMultiplier: 1,
+      pcThisWave: false,
+      grounded: false,
+      lockTimer: 0,
+      lockResets: 0,
+      lowestY: 0,
+      hold: null,
+    };
+  }
+
+  const boards = {
+    left:   createBoard("left",   document.getElementById("canvasLeft")),
+    center: createBoard("center", document.getElementById("canvasCenter")),
+    right:  createBoard("right",  document.getElementById("canvasRight")),
+  };
+  const order = [boards.center, boards.right, boards.left];
+  const nextCtx = document.getElementById("nextCanvas").getContext("2d");
+  const holdCtx = {
+    left: document.getElementById("holdCanvasLeft").getContext("2d"),
+    center: document.getElementById("holdCanvasCenter").getContext("2d"),
+    right: document.getElementById("holdCanvasRight").getContext("2d"),
+  };
+
+  // ---------- 状態 ----------
+  let cellSize = 20;
+  let nextCellSize = 9, nextCellOffset = 2; // NEXT表示のセルサイズ(盤面セルより一回り小さく可変)
+  let holdCellSize = 8, holdCellOffset = 2; // ホールド表示のセルサイズ(同上)
+  let waveNumber = 0;
+  let score = 0, linesTotal = 0, level = 1;
+  let comboCount = 0; // REN(コンボ): 連続してラインを消したwave数
+  let canHold = true; // ホールド: 何かが実際にロックされるまで再使用不可
+  let gameOver = false, paused = false, running = false;
+  let dropAccumulator = 0, dropInterval = 1200;
+  let lastTime = null;
+  const CLEAR_ANIM_MS = 360; // 通常消去の速さ
+  const BONUS_CLEAR_MS = 180; // ボーナス消去(ビーム)の速さ
+  let pendingWaveCheck = false;
+
+  function clearDurationFor(tier){
+    return (tier === "bonus3" || tier === "bonus5") ? BONUS_CLEAR_MS : CLEAR_ANIM_MS;
+  }
+
+  // ゲームオーバー演出: 軽いシェイク + 最下段→最上段へ灰色化してからオーバーレイ表示
+  const GAMEOVER_SHAKE_MS = 220;
+  const GAMEOVER_SHAKE_AMOUNT = 6;
+  const GAMEOVER_GAP1_MS = 600; // シェイク後、灰色化が始まるまでの間
+  const GAMEOVER_GRAY_MS = 550;
+  const GAMEOVER_GAP2_MS = 600; // 全て灰色になってからGame Over表示までの間
+  const GAMEOVER_GRAY_START = GAMEOVER_SHAKE_MS + GAMEOVER_GAP1_MS;
+  const GAMEOVER_GRAY_END = GAMEOVER_GRAY_START + GAMEOVER_GRAY_MS;
+  const GAMEOVER_TOTAL_MS = GAMEOVER_GRAY_END + GAMEOVER_GAP2_MS;
+  const GAMEOVER_GRAY_COLOR = "#5a5f72";
+  let gameOverEffect = null; // { startTs }
+
+  // ゲームモード: "playing" | "bonusSelect"
+  let mode = "playing";
+  let bonusStock = 0;
+  let scoreBonusCount = 0;
+  let fiveRowBonusPending = false;
+
+  // ボーナス選択中の状態
+  let bonusRow = 0;
+  let bonusBandSize = 3;
+  let bonusScored = true;
+  let bonusOnConfirm = null;
+  let bonusConsumesStock = false; // trueなら決定時にストックを消費(3列)。5列は元々ストック無関係
+
+  // ---------- 当たり判定 ----------
+  function collides(board, piece, dx=0, dy=0, rotOverride=null){
+    const rot = rotOverride===null ? piece.rot : rotOverride;
+    const cells = SHAPES[piece.type][rot];
+    for(const [cx,cy] of cells){
+      const x = piece.x + cx + dx;
+      const y = piece.y + cy + dy;
+      if(x < 0 || x >= COLS || y >= ROWS) return true;
+      if(y >= 0 && board.grid[y][x]) return true;
+    }
+    return false;
+  }
+
+  function ghostY(board){
+    const p = board.piece;
+    let gy = p.y;
+    while(!collides(board, p, 0, (gy - p.y) + 1)) gy++;
+    return gy;
+  }
+
+  // このピースがこれ以上下に落ちられない(接地している)かどうか
+  function isGrounded(board){
+    return collides(board, board.piece, 0, 1);
+  }
+
+  // ピースが現在の回転状態で実際に占めている最下段(絶対行)を返す
+  function pieceBottomRow(piece){
+    let maxCy = 0;
+    for(const [,cy] of SHAPES[piece.type][piece.rot]){
+      if(cy > maxCy) maxCy = cy;
+    }
+    return piece.y + maxCy;
+  }
+
+  // ---------- ウェーブ管理 ----------
+  function spawnOnBoard(board, type, rotIndex){
+    board.piece = { type, rot: rotIndex % 4, x: 3, y: -1 };
+    board.active = true;
+    board.locked = false;
+    board.lastRotated = false;
+    board.grounded = false;
+    board.lockTimer = 0;
+    board.lockResets = 0;
+    board.lowestY = pieceBottomRow(board.piece);
+    if(collides(board, board.piece, 0, 0)){
+      endGame();
+    }
+  }
+
+  function updateNextPreview(){
+    const nextType = getSeq(waveNumber);
+    const canvas = nextCtx.canvas;
+    nextCtx.clearRect(0, 0, canvas.width, canvas.height);
+    const cs = nextCellSize, offset = nextCellOffset;
+    const shape = SHAPES[nextType][0];
+    nextCtx.fillStyle = COLORS[nextType];
+    for(const [cx,cy] of shape){
+      nextCtx.fillRect(offset + cx*cs + 1, offset + cy*cs + 1, cs - 2, cs - 2);
+    }
+    if(patternsEnabled){
+      for(const [cx,cy] of shape){
+        drawMinoPattern(nextCtx, offset + cx*cs + 1, offset + cy*cs + 1, cs - 2, nextType);
+      }
+    }
+  }
+
+  function startWave(){
+    if(gameOver) return;
+    waveNumber++;
+    document.getElementById("waveVal").textContent = waveNumber;
+    const pieceCR = getSeq(waveNumber - 1);
+    spawnOnBoard(boards.center, pieceCR, 0);
+    spawnOnBoard(boards.right, pieceCR, 1);
+
+    const standby = document.getElementById("standbyLeft");
+    if(waveNumber >= 2){
+      const pieceL = getSeq(waveNumber - 2);
+      spawnOnBoard(boards.left, pieceL, 0);
+      standby.style.display = "none";
+    } else {
+      boards.left.active = false;
+      boards.left.locked = true;
+      boards.left.piece = null;
+      standby.style.display = "flex";
+    }
+    updateNextPreview();
+    pulseLinkBar();
+    updateHoldUI();
+  }
+
+  // ---------- ホールド ----------
+  // ボタンは1つだけ。押すと3盤面の「今のブロック」が一斉にホールドされ、
+  // 初回はそのまま次のブロックが降ってくる(共有シーケンスを通常通り1つ進める)。
+  // 2回目以降は各盤面でホールド中のブロックと入れ替える(シーケンスは進めない)。
+  // 1wave目は左テトリスがまだ待機中でピースを持たないため、ホールドは2wave目以降で解禁する。
+  function useHold(){
+    if(mode !== "playing" || !running || gameOver || !canHold) return;
+    if(waveNumber < 2) return;
+    if(!boards.center.piece) return;
+    playButtonBeepSE();
+
+    if(boards.center.hold === null){
+      boards.center.hold = boards.center.piece.type;
+      boards.right.hold = boards.center.piece.type;
+      boards.left.hold = boards.left.piece.type;
+      startWave();
+    } else {
+      swapHoldForBoard(boards.center, 0);
+      swapHoldForBoard(boards.right, 1);
+      swapHoldForBoard(boards.left, 0);
+    }
+    canHold = false;
+    updateHoldUI(true);
+  }
+
+  // 盤面の「今のブロック」とホールド中のブロックを入れ替え、新しいピースとして着地状態をリセットする
+  function swapHoldForBoard(board, rot){
+    const outgoing = board.piece.type;
+    board.piece.type = board.hold;
+    board.piece.rot = rot;
+    board.piece.x = 3;
+    board.piece.y = -1;
+    board.hold = outgoing;
+    board.lastRotated = false;
+    board.grounded = false;
+    board.lockTimer = 0;
+    board.lockResets = 0;
+    board.lowestY = pieceBottomRow(board.piece);
+    if(collides(board, board.piece, 0, 0)){
+      endGame();
+    }
+  }
+
+  function drawHoldPiece(key, type){
+    const ctx = holdCtx[key];
+    const canvas = ctx.canvas;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const cs = holdCellSize, offset = holdCellOffset;
+    const shape = SHAPES[type][0];
+    ctx.fillStyle = COLORS[type];
+    for(const [cx, cy] of shape){
+      ctx.fillRect(offset + cx*cs + 1, offset + cy*cs + 1, cs - 2, cs - 2);
+    }
+    if(patternsEnabled){
+      for(const [cx, cy] of shape){
+        drawMinoPattern(ctx, offset + cx*cs + 1, offset + cy*cs + 1, cs - 2, type);
+      }
+    }
+  }
+
+  function updateHoldUI(flash){
+    for(const key of ["left", "center", "right"]){
+      const board = boards[key];
+      const Key = key.charAt(0).toUpperCase() + key.slice(1);
+      const el = document.getElementById("holdSlot" + Key);
+      const emptyEl = document.getElementById("holdEmpty" + Key);
+      const canvas = document.getElementById("holdCanvas" + Key);
+      if(board.hold){
+        emptyEl.style.display = "none";
+        canvas.style.display = "block";
+        drawHoldPiece(key, board.hold);
+      } else {
+        emptyEl.style.display = "";
+        canvas.style.display = "none";
+      }
+      if(flash){
+        el.classList.remove("flash");
+        void el.offsetWidth;
+        el.classList.add("flash");
+      }
+    }
+    document.getElementById("btnHold").classList.toggle("disabled", !canHold || waveNumber < 2);
+  }
+
+  function relevantBoards(){
+    return waveNumber >= 2 ? [boards.center, boards.right, boards.left] : [boards.center, boards.right];
+  }
+
+  function lockBoardOnly(board){
+    const p = board.piece;
+    const spin = detectTSpin(board, p);
+    const cells = SHAPES[p.type][p.rot];
+    for(const [cx,cy] of cells){
+      const x = p.x + cx, y = p.y + cy;
+      if(y >= 0) board.grid[y][x] = COLORS[p.type];
+    }
+    board.linesThisWave = clearLines(board);
+
+    // B2B(バックトゥーバック): 4ライン消しかTスピン(ライン付き)を"難しい消去"とし、
+    // 連続した場合のみ2回目以降のスコアに1.5倍。通常の1〜3ライン消去(非Tスピン)でリセット。
+    const isDifficultClear = board.linesThisWave === 4 || (spin && board.linesThisWave > 0);
+    board.b2bMultiplier = 1;
+    if(isDifficultClear){
+      if(board.b2bCount > 0) board.b2bMultiplier = 1.5;
+      board.b2bCount++;
+    } else if(board.linesThisWave > 0){
+      board.b2bCount = 0;
+    }
+
+    if(spin){
+      const maxLines = spin === "mini" ? 2 : 3;
+      const base = TSPIN_SCORE[spin][Math.min(board.linesThisWave, maxLines)] || 0;
+      const gained = Math.round(base * levelFactor(level) * board.b2bMultiplier);
+      if(gained > 0){
+        score += gained;
+        document.getElementById("scoreVal").textContent = score;
+      }
+      showTSpinToast(board, spin);
+    }
+    board.locked = true;
+    board.active = false;
+    board.piece = null;
+  }
+
+  function clearLines(board){
+    const fullRows = [];
+    for(let y = 0; y < ROWS; y++){
+      if(board.grid[y].every(c => c)) fullRows.push(y);
+    }
+    // パーフェクトクリア判定: 消える行以外がすべて空なら、消去後に盤面が空になる
+    board.pcThisWave = fullRows.length > 0 &&
+      board.grid.every((row, y) => fullRows.includes(y) || row.every(c => !c));
+    if(fullRows.length > 0){
+      board.clearingRows = fullRows;
+      board.clearAnimStart = performance.now();
+      board.clearAnimTier = "normal";
+      playClearSE(fullRows.length);
+    }
+    return fullRows.length;
+  }
+
+  // クリア演出が終わった盤面の行を実際に詰める
+  function resolveClearedRows(board){
+    const rows = board.clearingRows;
+    if(!rows) return;
+    const rowSet = new Set(rows);
+    const kept = board.grid.filter((_, y) => !rowSet.has(y));
+    const removedCount = ROWS - kept.length;
+    const empties = Array.from({length: removedCount}, () => Array(COLS).fill(null));
+    board.grid = empties.concat(kept);
+    board.clearingRows = null;
+    board.clearAnimStart = 0;
+    board.clearAnimTier = "normal";
+  }
+
+  function hasPendingClear(){
+    return order.some(b => b.clearingRows);
+  }
+
+  // 各盤面のクリア演出の経過をチェックし、終わっていれば確定させる
+  function updateClearAnimations(ts){
+    let resolvedAny = false;
+    for(const b of order){
+      if(b.clearingRows && ts - b.clearAnimStart >= clearDurationFor(b.clearAnimTier)){
+        resolveClearedRows(b);
+        resolvedAny = true;
+      }
+    }
+    if(resolvedAny && pendingWaveCheck && !hasPendingClear()){
+      pendingWaveCheck = false;
+      checkWaveComplete();
+    }
+  }
+
+  // ボーナス消去演出: 右テトリス→中央テトリス→左テトリスの順に、
+  // 画面外から飛んできたビームが順番に薙ぎ払っていくように見せる
+  const BONUS_STAGGER_MS = 160;
+
+  function triggerBonusClearEffect(topRow, bandSize, tier, onAllDone){
+    const targets = [boards.right, boards.center];
+    if(waveNumber >= 2) targets.push(boards.left);
+    const rows = [];
+    for(let k = 0; k < bandSize; k++){
+      const y = topRow + k;
+      if(y >= 0 && y < ROWS) rows.push(y);
+    }
+    targets.forEach((b, i) => {
+      setTimeout(() => {
+        b.clearingRows = rows.slice();
+        b.clearAnimStart = performance.now();
+        b.clearAnimTier = tier;
+      }, i * BONUS_STAGGER_MS);
+    });
+    const totalDuration = (targets.length - 1) * BONUS_STAGGER_MS + BONUS_CLEAR_MS;
+    if(onAllDone){
+      setTimeout(onAllDone, totalDuration + 20);
+    }
+  }
+
+
+  function countFilledCells(topRow, bandSize){
+    let count = 0;
+    for(const b of order){
+      for(let y = topRow; y < topRow + bandSize; y++){
+        if(y < 0 || y >= ROWS) continue;
+        for(let x = 0; x < COLS; x++) if(b.grid[y][x]) count++;
+      }
+    }
+    return count;
+  }
+
+  const LINE_SCORE = {0:0, 1:100, 2:300, 3:500, 4:800};
+
+  // レベルLからL+1に上がるのに必要なライン数は 10+(L-1) で、レベルが上がるごとに1ずつ増えていく
+  function levelForLines(lines){
+    let lvl = 1, cum = 0;
+    while(true){
+      const need = 10 + (lvl - 1);
+      if(cum + need > lines) break;
+      cum += need;
+      lvl += 1;
+    }
+    return lvl;
+  }
+
+  // ---------- Tスピン判定 ----------
+  const TSPIN_SCORE = {
+    mini: {0: 50,  1: 200, 2: 400},
+    full: {0: 100, 1: 400, 2: 800, 3: 1200},
+  };
+
+  function tspinCornerFilled(board, x, y){
+    if(x < 0 || x >= COLS || y >= ROWS) return true; // 壁・床は「埋まっている」扱い
+    if(y < 0) return false; // 盤面より上は「埋まっていない」扱い
+    return !!board.grid[y][x];
+  }
+
+  // 3隅ルール: Tミノの中心(x+1,y+1)を囲む4隅のうち3つ以上が埋まっていれば成立。
+  // 前方(先端側)2隅のうち埋まっている数で Full / Mini を判定する。
+  function detectTSpin(board, piece){
+    if(piece.type !== "T" || !board.lastRotated) return null;
+    const x = piece.x, y = piece.y;
+    const tl = tspinCornerFilled(board, x,     y);
+    const tr = tspinCornerFilled(board, x + 2, y);
+    const bl = tspinCornerFilled(board, x,     y + 2);
+    const br = tspinCornerFilled(board, x + 2, y + 2);
+    const total = [tl, tr, bl, br].filter(Boolean).length;
+    if(total < 3) return null;
+    let frontCount;
+    switch(piece.rot){
+      case 0: frontCount = [tl, tr].filter(Boolean).length; break; // 先端が上
+      case 1: frontCount = [tr, br].filter(Boolean).length; break; // 先端が右
+      case 2: frontCount = [bl, br].filter(Boolean).length; break; // 先端が下
+      default: frontCount = [tl, bl].filter(Boolean).length; break; // 先端が左
+    }
+    return frontCount >= 2 ? "full" : "mini";
+  }
+
+  function showTSpinToast(board, spin){
+    const id = "toast" + board.name.charAt(0).toUpperCase() + board.name.slice(1);
+    const el = document.getElementById(id);
+    if(el){
+      el.textContent = spin === "mini" ? "T-SPIN MINI!" : "T-SPIN!";
+      el.classList.add("show", "tspin");
+      setTimeout(() => el.classList.remove("show", "tspin"), 700);
+    }
+    if(spin === "mini") playTSpinMiniSE();
+    else playTSpinSE();
+  }
+
+  function levelFactor(lv){
+    return lv === 1 ? 1.0 : 1 + 0.1 * lv;
+  }
+
+  function scoreThreshold(n){
+    return 1000 * n * (n + 1) / 2;
+  }
+
+  function isBonusWave(w){
+    if(w === 20) return true;
+    if(w >= 50 && w % 50 === 0) return true;
+    return false;
+  }
+
+  function finalizeWave(){
+    canHold = true; // このwaveの各盤面が実際にロックされたので、次のピースでまたホールド可能
+    const boardsList = relevantBoards();
+    let waveScore = 0;
+    let clearedCount = 0;
+    for(const b of boardsList){
+      waveScore += Math.round((LINE_SCORE[b.linesThisWave] || 0) * levelFactor(level) * (b.b2bMultiplier || 1));
+      linesTotal += b.linesThisWave;
+      if(b.linesThisWave > 0) clearedCount++;
+    }
+    let multiplier = 1;
+    if(clearedCount >= 3){ multiplier = 7; fiveRowBonusPending = true; }
+    else if(clearedCount === 2) multiplier = 3;
+
+    if(waveScore > 0){
+      score += waveScore * multiplier;
+      if(multiplier > 1) showBonus(multiplier);
+    }
+
+    // REN(コンボ): このwaveでどこか1つでもライン消去があれば連続扱い。
+    // 2wave連続目以降でボーナス加算(演出・SEなし、スコアのみ)。
+    if(clearedCount > 0){
+      if(comboCount > 0){
+        score += Math.round(50 * comboCount * levelFactor(level));
+      }
+      comboCount++;
+    } else {
+      comboCount = 0;
+    }
+
+    // パーフェクトクリア: 盤面が完全に空になった数に応じてボーナス加算
+    // (演出・SEなし、スコアのみ。2盤面同時で2倍、3盤面同時で4倍)
+    const pcCount = boardsList.filter(b => b.pcThisWave).length;
+    if(pcCount > 0){
+      const pcBase = Math.round(2000 * levelFactor(level));
+      const pcMultiplier = pcCount >= 3 ? 4 : (pcCount === 2 ? 2 : 1);
+      score += pcBase * pcCount * pcMultiplier;
+      showPerfectClearToast();
+      playPerfectClearSE();
+    }
+
+    for(const b of boardsList){ b.linesThisWave = 0; b.b2bMultiplier = 1; b.pcThisWave = false; }
+
+    level = levelForLines(linesTotal);
+    dropInterval = Math.max(30, 1200 - (level - 1) * 60);
+
+    document.getElementById("scoreVal").textContent = score;
+    document.getElementById("levelVal").textContent = level;
+    document.getElementById("linesVal").textContent = linesTotal;
+  }
+
+  function grantBonusIfNeeded(){
+    let earned = false;
+    while(score >= scoreThreshold(scoreBonusCount + 1)){
+      scoreBonusCount++;
+      earned = true;
+    }
+    const nextWave = waveNumber + 1;
+    if(isBonusWave(nextWave)) earned = true;
+    if(earned && bonusStock < 1){
+      bonusStock = 1;
+      updateBonusStockUI();
+      flashStockGained();
+    }
+  }
+
+  function updateBonusStockUI(){
+    const btn = document.getElementById("btnUseBonus");
+    if(bonusStock >= 1) btn.classList.remove("disabled");
+    else btn.classList.add("disabled");
+  }
+
+  function flashStockGained(){
+    const btn = document.getElementById("btnUseBonus");
+    playBonusGainSE();
+    btn.classList.add("blink-alert");
+    setTimeout(() => btn.classList.remove("blink-alert"), 3000);
+  }
+
+  function checkWaveComplete(){
+    if(relevantBoards().every(b => b.locked)){
+      finalizeWave();
+      if(gameOver) return;
+      grantBonusIfNeeded();
+      if(fiveRowBonusPending){
+        fiveRowBonusPending = false;
+        openBonusSelect(5, false, startWave, false);
+      } else {
+        startWave();
+      }
+    }
+  }
+
+  function showBonus(multiplier){
+    if(multiplier >= 7) playX7SE();
+    else if(multiplier >= 3) playX3SE();
+    const targets = ["toastCenter", "toastRight"];
+    if(waveNumber >= 2) targets.push("toastLeft");
+    for(const id of targets){
+      const el = document.getElementById(id);
+      el.textContent = multiplier + "x!";
+      el.classList.add("show");
+      setTimeout(() => el.classList.remove("show"), 700);
+    }
+  }
+
+  function pulseLinkBar(){
+    const bar = document.getElementById("linkBar");
+    bar.classList.add("pulse");
+    setTimeout(() => bar.classList.remove("pulse"), 180);
+  }
+
+  // ---------- ボーナス選択(共通: 3列ストック消費 / 5列即時) ----------
+  function activateStock(){
+    if(mode !== "playing" || !running || gameOver || bonusStock < 1) return;
+    playButtonBeepSE();
+    // ストックはここでは消費しない。実際に「消す」を選んだ時に消費する(キャンセル時は残す)
+    openBonusSelect(3, true, null, true);
+  }
+
+  function openBonusSelect(bandSize, scored, onConfirm, consumesStock){
+    mode = "bonusSelect";
+    bonusBandSize = bandSize;
+    bonusScored = scored;
+    bonusOnConfirm = onConfirm;
+    bonusConsumesStock = !!consumesStock;
+    bonusRow = Math.max(0, ROWS - bandSize);
+    const S = STRINGS[lang];
+    document.getElementById("bonusTitle").textContent =
+      bandSize === 5 ? S.bonusTitle5 : S.bonusTitle3;
+    document.getElementById("bonusHint").textContent =
+      scored ? S.bonusHintScored : S.bonusHintPlain;
+    document.getElementById("bonusConfirm").textContent = S.bonusConfirm(bandSize);
+    document.getElementById("bonusBanner").classList.add("show");
+  }
+
+  function moveBonusRow(dy){
+    if(mode !== "bonusSelect") return;
+    playButtonBeepSE();
+    bonusRow = Math.max(0, Math.min(ROWS - bonusBandSize, bonusRow + dy));
+  }
+
+  function confirmBonusClear(){
+    if(mode !== "bonusSelect") return;
+    if(bonusScored){
+      const cells = countFilledCells(bonusRow, bonusBandSize);
+      const gained = cells * 5 * level;
+      score += gained;
+      document.getElementById("scoreVal").textContent = score;
+    }
+    if(bonusConsumesStock){
+      bonusStock = 0;
+      updateBonusStockUI();
+    }
+    document.getElementById("bonusBanner").classList.remove("show");
+    mode = "playing";
+    const cb = bonusOnConfirm;
+    bonusOnConfirm = null;
+    const tier = bonusBandSize >= 5 ? "bonus5" : "bonus3";
+    if(tier === "bonus5") playBonus5SE();
+    else playBonus3SE();
+    triggerBonusClearEffect(bonusRow, bonusBandSize, tier, cb);
+  }
+
+  // キャンセル要求: 3列(ストック)は即キャンセル、5列(強制)は確認ダイアログを挟む
+  function requestCancelBonusSelect(){
+    if(mode !== "bonusSelect") return;
+    playButtonBeepSE();
+    if(bonusConsumesStock){
+      cancelBonusSelect();
+    } else {
+      document.getElementById("bonusCancelConfirm").classList.add("show");
+    }
+  }
+
+  // キャンセル: 3列(ストック)は消費せずそのまま残す/5列(強制)は使用権が消滅し、
+  // 消去せずそのままcb(次waveへの進行など)を呼ぶ
+  function cancelBonusSelect(){
+    if(mode !== "bonusSelect") return;
+    document.getElementById("bonusBanner").classList.remove("show");
+    mode = "playing";
+    const cb = bonusOnConfirm;
+    bonusOnConfirm = null;
+    if(cb) cb();
+  }
+
+  // ---------- 操作 ----------
+  function activeBoards(){
+    return order.filter(b => b.active && !b.locked);
+  }
+
+  function moveAll(dx){
+    if(gameOver || paused || mode !== "playing") return;
+    let moved = false;
+    for(const b of activeBoards()){
+      if(!collides(b, b.piece, dx, 0)){
+        b.piece.x += dx; moved = true; b.lastRotated = false;
+        const bottomRow = pieceBottomRow(b.piece);
+        if(bottomRow > b.lowestY){
+          b.lowestY = bottomRow;
+          b.lockResets = 0;
+        }
+        if(isGrounded(b) && b.lockResets < LOCK_RESET_LIMIT){
+          b.lockTimer = 0;
+          b.lockResets++;
+        }
+      }
+    }
+    if(moved) playMoveSE();
+  }
+
+  function rotateAll(dir = 1){
+    if(gameOver || paused || mode !== "playing") return;
+    let rotated = false;
+    for(const b of activeBoards()){
+      const p = b.piece;
+      const wasGrounded = isGrounded(b); // 回転を試す前の接地状態を記録しておく
+      const newRot = (p.rot + dir + 4) % 4;
+      const kicksToTry = p.type === "T" ? TKICKS : KICKS;
+      for(const [kx,ky] of kicksToTry){
+        if(!collides(b, p, kx, ky, newRot)){
+          p.rot = newRot; p.x += kx; p.y += ky;
+          rotated = true;
+          b.lastRotated = true;
+          const bottomRow = pieceBottomRow(p);
+          if(bottomRow > b.lowestY){
+            b.lowestY = bottomRow;
+            b.lockResets = 0;
+          }
+          // 「回転前に接地していた」か「回転後に接地している」のどちらか一方でも
+          // 満たしていれば1回消費する。post-rotationの接地判定だけだと、ミノの
+          // 形状差でキック無しに浮いてしまう回転が制限を一切消費せず素通りしてしまい、
+          // pre-rotationの接地判定だけだと、逆に浮いた状態から着地する回転が
+          // 素通りしてしまう。どちらの片方も見逃さないよう、両方をORで判定する。
+          if((wasGrounded || isGrounded(b)) && b.lockResets < LOCK_RESET_LIMIT){
+            b.lockTimer = 0;
+            b.lockResets++;
+          }
+          break;
+        }
+      }
+    }
+    if(rotated) playRotateSE();
+  }
+  function rotateAllCW(){ rotateAll(1); }
+  function rotateAllCCW(){ rotateAll(-1); }
+
+  function softDropStep(){
+    if(gameOver || paused || mode !== "playing") return;
+    const targets = activeBoards();
+    for(const b of targets){
+      if(!collides(b, b.piece, 0, 1)){
+        b.piece.y += 1;
+        score += 1;
+        b.grounded = false;
+        const bottomRow = pieceBottomRow(b.piece);
+        if(bottomRow > b.lowestY){
+          b.lowestY = bottomRow;
+          b.lockResets = 0;
+          b.lockTimer = 0;
+        }
+      }
+      // 接地している場合はここではロックしない(ロック猶予タイマーに委ねる)
+    }
+    document.getElementById("scoreVal").textContent = score;
+  }
+
+  function hardDropAll(){
+    if(gameOver || paused || mode !== "playing") return;
+    const targets = activeBoards();
+    let anyLocked = false;
+    for(const b of targets){
+      let dist = 0;
+      while(!collides(b, b.piece, 0, dist + 1)) dist++;
+      b.piece.y += dist;
+      score += dist * 2;
+      lockBoardOnly(b);
+      anyLocked = true;
+    }
+    document.getElementById("scoreVal").textContent = score;
+    if(anyLocked){
+      playHardDropSE();
+      if(hasPendingClear()) pendingWaveCheck = true;
+      else checkWaveComplete();
+    }
+  }
+
+  function gravityTick(){
+    if(gameOver || paused || mode !== "playing") return;
+    const targets = activeBoards();
+    for(const b of targets){
+      if(!collides(b, b.piece, 0, 1)){
+        b.piece.y += 1;
+        b.grounded = false;
+        const bottomRow = pieceBottomRow(b.piece);
+        if(bottomRow > b.lowestY){
+          b.lowestY = bottomRow;
+          b.lockResets = 0;
+          b.lockTimer = 0;
+        }
+      }
+      // 接地している場合はここではロックしない(ロック猶予タイマーに委ねる)
+    }
+  }
+
+  // 接地中の盤面のロック猶予タイマーを進め、猶予時間を超えたらロックする
+  function updateLockDelay(delta){
+    if(gameOver || paused || mode !== "playing") return;
+    const targets = activeBoards();
+    let anyLocked = false;
+    for(const b of targets){
+      if(isGrounded(b)){
+        b.grounded = true;
+        b.lockTimer += delta;
+        if(b.lockTimer >= LOCK_DELAY_MS){
+          lockBoardOnly(b);
+          anyLocked = true;
+        }
+      } else {
+        // 浮いた(非接地)だけではリセット回数もlockTimerも回復させない(=凍結するだけ)。
+        // ここでlockTimerを0にしてしまうと、回転で一瞬浮いて着地し直すだけで
+        // 15回制限とは無関係にロック猶予が際限なく引き延ばされる抜け道になる。
+        b.grounded = false;
+      }
+    }
+    if(anyLocked){
+      playLandSE();
+      if(hasPendingClear()) pendingWaveCheck = true;
+      else checkWaveComplete();
+    }
+  }
+
+  // ---------- 描画 ----------
+  function resize(){
+    const container = document.getElementById("boards");
+    const w = container.clientWidth || window.innerWidth;
+    const totalCols = COLS * 3;
+    const gaps = 10 * 2 + 8;
+    let csW = Math.floor((w - gaps) / totalCols);
+    const availH = Math.max(220, window.innerHeight * 0.5);
+    let csH = Math.floor(availH / ROWS);
+    let cs = Math.min(csW, csH);
+    cs = Math.max(8, Math.min(cs, 22));
+    cellSize = cs;
+    for(const b of order){
+      b.canvas.width = COLS * cellSize;
+      b.canvas.height = ROWS * cellSize;
+    }
+
+    // NEXT表示: 盤面の実セルより一回り小さく、かつコンパクトな枠(next-box)に収まるサイズへ
+    const NEXT_BOX_INNER = 34;
+    nextCellSize = Math.max(6, Math.round(cellSize * 0.75));
+    nextCellOffset = Math.max(2, Math.round(nextCellSize / 4));
+    let nextSide = nextCellSize * 4 + nextCellOffset * 2;
+    if(nextSide > NEXT_BOX_INNER){
+      nextCellSize = Math.max(5, Math.floor((NEXT_BOX_INNER - 4) / 4));
+      nextCellOffset = 2;
+      nextSide = nextCellSize * 4 + nextCellOffset * 2;
+    }
+    nextCtx.canvas.width = nextSide;
+    nextCtx.canvas.height = nextSide;
+    updateNextPreview();
+
+    // ホールド中ブロックも実セルより一回り小さいサイズの「形」で表示する
+    const HOLD_BOX_INNER_H = 22; // hold-slot(高さ30px)に収まる目安の内側高さ
+    holdCellOffset = 2;
+    holdCellSize = Math.max(5, Math.floor((HOLD_BOX_INNER_H - holdCellOffset * 2) / 2));
+    holdCellSize = Math.min(holdCellSize, Math.max(5, Math.round(cellSize * 0.75)));
+    const holdW = holdCellSize * 4 + holdCellOffset * 2;
+    const holdH = holdCellSize * 2 + holdCellOffset * 2;
+    for(const key of ["left", "center", "right"]){
+      const c = holdCtx[key].canvas;
+      c.width = holdW;
+      c.height = holdH;
+    }
+    updateHoldUI();
+
+    // 一時停止・3列消去ボーナスボタンの幅をNEXT表示枠の幅に合わせる
+    const nextBoxWidth = document.getElementById("nextBox").offsetWidth;
+    document.getElementById("btnPause").style.width = nextBoxWidth + "px";
+    document.getElementById("btnUseBonus").style.width = nextBoxWidth + "px";
+
+    drawAll();
+  }
+
+  function drawBoard(board){
+    const ctx = board.ctx;
+    const w = board.canvas.width, h = board.canvas.height;
+
+    const isBeamTier = board.clearingRows && (board.clearAnimTier === "bonus3" || board.clearAnimTier === "bonus5");
+    let shakeProgress = 0;
+    if(isBeamTier){
+      shakeProgress = Math.max(0, Math.min(1, (performance.now() - board.clearAnimStart) / BONUS_CLEAR_MS));
+    }
+
+    let goProgress = null, goShakeT = null;
+    if(gameOverEffect){
+      goShakeT = performance.now() - gameOverEffect.startTs;
+      if(goShakeT < GAMEOVER_GRAY_START){
+        goProgress = 0;
+      } else if(goShakeT < GAMEOVER_GRAY_END){
+        goProgress = (goShakeT - GAMEOVER_GRAY_START) / GAMEOVER_GRAY_MS;
+      } else {
+        goProgress = 1;
+      }
+    }
+
+    ctx.save();
+    if(isBeamTier){
+      const shakeAmount = board.clearAnimTier === "bonus5" ? 4 : 1.6;
+      const shake = (1 - shakeProgress) * shakeAmount;
+      ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
+    } else if(goShakeT !== null && goShakeT < GAMEOVER_SHAKE_MS){
+      const shake = GAMEOVER_SHAKE_AMOUNT * (1 - goShakeT / GAMEOVER_SHAKE_MS);
+      ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
+    }
+
+    ctx.clearRect(-6, -6, w + 12, h + 12);
+
+    ctx.strokeStyle = "rgba(255,255,255,0.045)";
+    ctx.lineWidth = 1;
+    for(let x = 0; x <= COLS; x++){
+      ctx.beginPath();
+      ctx.moveTo(x * cellSize + 0.5, 0);
+      ctx.lineTo(x * cellSize + 0.5, h);
+      ctx.stroke();
+    }
+    for(let y = 0; y <= ROWS; y++){
+      ctx.beginPath();
+      ctx.moveTo(0, y * cellSize + 0.5);
+      ctx.lineTo(w, y * cellSize + 0.5);
+      ctx.stroke();
+    }
+
+    const grayThreshold = goProgress !== null ? ROWS - Math.floor(goProgress * ROWS) : null;
+    const clearRowSet = board.clearingRows ? new Set(board.clearingRows) : null;
+    for(let y = 0; y < ROWS; y++){
+      if(clearRowSet && clearRowSet.has(y)) continue;
+      for(let x = 0; x < COLS; x++){
+        const c = board.grid[y][x];
+        if(!c) continue;
+        if(grayThreshold !== null && y >= grayThreshold){
+          drawCell(ctx, x, y, GAMEOVER_GRAY_COLOR, 1);
+        } else {
+          drawCell(ctx, x, y, c, 1);
+        }
+      }
+    }
+
+    if(clearRowSet){
+      const progress = Math.max(0, Math.min(1, (performance.now() - board.clearAnimStart) / clearDurationFor(board.clearAnimTier)));
+      if(board.clearAnimTier === "bonus3" || board.clearAnimTier === "bonus5"){
+        drawBeamClear(ctx, w, h, clearRowSet, board.grid, progress, board.clearAnimTier === "bonus5");
+      } else {
+        drawWipeClear(ctx, w, clearRowSet, board.grid, progress);
+      }
+    }
+
+    if(board.active && !board.locked && board.piece){
+      const p = board.piece;
+      const gy = ghostY(board);
+      const cells = SHAPES[p.type][p.rot];
+      for(const [cx,cy] of cells){
+        const gx2 = p.x + cx, gy2 = gy + cy;
+        if(gy2 >= 0) drawCell(ctx, gx2, gy2, COLORS[p.type], 0.22, true);
+      }
+      for(const [cx,cy] of cells){
+        const x = p.x + cx, y = p.y + cy;
+        if(y >= 0) drawCell(ctx, x, y, COLORS[p.type], 1);
+      }
+    }
+
+    if(mode === "bonusSelect"){
+      ctx.fillStyle = "rgba(244,211,94,0.28)";
+      ctx.fillRect(0, bonusRow * cellSize, w, cellSize * bonusBandSize);
+      ctx.strokeStyle = "rgba(244,211,94,0.9)";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(1, bonusRow * cellSize + 1, w - 2, cellSize * bonusBandSize - 2);
+    }
+    ctx.restore();
+  }
+
+  function drawCell(ctx, x, y, color, alpha, outlineOnly){
+    const px = x * cellSize, py = y * cellSize;
+    ctx.globalAlpha = alpha;
+    if(outlineOnly){
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(px + 2, py + 2, cellSize - 4, cellSize - 4);
+    } else {
+      ctx.fillStyle = color;
+      ctx.fillRect(px + 1, py + 1, cellSize - 2, cellSize - 2);
+      ctx.fillStyle = "rgba(255,255,255,0.18)";
+      ctx.fillRect(px + 1, py + 1, cellSize - 2, Math.max(2, cellSize * 0.18));
+      if(patternsEnabled){
+        const t = COLOR_TO_TYPE[color];
+        if(t) drawMinoPattern(ctx, px + 1, py + 1, cellSize - 2, t);
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // 通常のライン消去演出: 左から右へ消えていく
+  function drawWipeClear(ctx, w, clearRowSet, grid, progress){
+    const wipeX = progress * COLS;
+    for(const y of clearRowSet){
+      ctx.globalAlpha = 0.4 * (1 - progress);
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, y * cellSize, w, cellSize);
+      ctx.globalAlpha = 1;
+
+      for(let x = 0; x < COLS; x++){
+        if(x < wipeX) continue; // 左から右へ既に消え去った部分
+        const c = grid[y][x];
+        if(!c) continue;
+        drawCell(ctx, x, y, c, 1);
+        const nearEdge = x - wipeX < 1;
+        ctx.globalAlpha = nearEdge ? 0.9 : 0.5;
+        ctx.fillStyle = "rgba(255,255,255,0.85)";
+        const px = x * cellSize, py = y * cellSize;
+        ctx.fillRect(px + 1, py + 1, cellSize - 2, cellSize - 2);
+        ctx.globalAlpha = 1;
+      }
+    }
+  }
+
+  // ボーナス消去演出: 右から左へ光のビームが薙ぎ払っていく(bigなら5列消去のより派手な版)
+  function drawBeamClear(ctx, w, h, clearRowSet, grid, progress, big){
+    if(big && progress < 0.18){
+      ctx.globalAlpha = 0.6 * (1 - progress / 0.18);
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, w, h);
+      ctx.globalAlpha = 1;
+    }
+
+    const beamX = COLS - progress * COLS; // 右→左へ移動
+    const beamWidth = 10;
+
+    for(const y of clearRowSet){
+      ctx.globalAlpha = (big ? 0.5 : 0.35) * (1 - progress);
+      ctx.fillStyle = big ? "#fff6d8" : "rgba(244,211,94,0.9)";
+      ctx.fillRect(0, y * cellSize, w, cellSize);
+      ctx.globalAlpha = 1;
+
+      for(let x = 0; x < COLS; x++){
+        if(x >= beamX) continue; // ビームに消し去られた部分
+        const c = grid[y][x];
+        if(!c) continue;
+        drawCell(ctx, x, y, c, 1);
+      }
+    }
+
+    const top = Math.min(...clearRowSet) * cellSize;
+    const bottom = (Math.max(...clearRowSet) + 1) * cellSize;
+    const bx = beamX * cellSize;
+    ctx.save();
+    ctx.shadowColor = big ? "#ffffff" : "#f4d35e";
+    ctx.shadowBlur = big ? 30 : 16;
+    ctx.fillStyle = big ? "rgba(255,255,255,0.95)" : "rgba(244,211,94,0.9)";
+    ctx.fillRect(bx - (beamWidth * cellSize) / 2, top, beamWidth * cellSize, bottom - top);
+    ctx.restore();
+  }
+
+  function drawAll(){
+    for(const b of order) drawBoard(b);
+  }
+
+  // ---------- ゲームループ ----------
+  function loop(ts){
+    if(!lastTime) lastTime = ts;
+    const delta = ts - lastTime;
+    lastTime = ts;
+    if(running && !gameOver && !paused && mode === "playing"){
+      if(!hasPendingClear()){
+        updateLockDelay(delta);
+        dropAccumulator += delta;
+        if(dropAccumulator >= dropInterval){
+          dropAccumulator = 0;
+          gravityTick();
+        }
+      }
+    }
+    updateClearAnimations(ts);
+    drawAll();
+    requestAnimationFrame(loop);
+  }
+
+  // ---------- ハイスコア(localStorage、上位3件を保存) ----------
+  const HIGH_SCORES_KEY = "3ris_highScores";
+  const LEGACY_HIGH_SCORE_KEY = "3ris_highScore"; // 旧バージョン(単一ハイスコア)からの移行用
+  const MAX_HIGH_SCORES = 3;
+
+  function loadHighScores(){
+    try{
+      const raw = localStorage.getItem(HIGH_SCORES_KEY);
+      if(raw){
+        const arr = JSON.parse(raw);
+        if(Array.isArray(arr)){
+          return arr.filter(n => typeof n === "number" && !isNaN(n))
+                    .sort((a,b) => b - a)
+                    .slice(0, MAX_HIGH_SCORES);
+        }
+      }
+      const legacy = parseInt(localStorage.getItem(LEGACY_HIGH_SCORE_KEY), 10);
+      if(!isNaN(legacy) && legacy > 0) return [legacy];
+    }catch(e){ /* 読み込み失敗時は空扱い */ }
+    return [];
+  }
+
+  let highScores = loadHighScores();
+  let isNewHighScore = false; // 歴代1位が更新された場合のみtrueにする
+
+  function saveHighScores(){
+    try{ localStorage.setItem(HIGH_SCORES_KEY, JSON.stringify(highScores)); }catch(e){}
+  }
+
+  // ゲーム終了時に1回だけ呼び出し、上位3件を更新する
+  function registerFinalScore(finalScore){
+    const prevBest = highScores.length ? highScores[0] : 0;
+    isNewHighScore = finalScore > prevBest;
+    highScores.push(finalScore);
+    highScores.sort((a,b) => b - a);
+    highScores = highScores.slice(0, MAX_HIGH_SCORES);
+    saveHighScores();
+  }
+
+  // ハイスコア一覧のHTMLを生成(記録が無ければ「まだ記録がありません」を表示)
+  function highScoreListHTML(){
+    const S = STRINGS[lang];
+    let body;
+    if(highScores.length === 0){
+      body = '<div class="hs-empty">' + S.noRecords + '</div>';
+    } else {
+      const rows = highScores.map((s, i) =>
+        '<tr><td class="hs-rank">' + (i + 1) + '</td><td class="hs-score">' + s + '</td></tr>'
+      ).join('');
+      body = '<table class="hs-table"><tbody>' + rows + '</tbody></table>';
+    }
+    return '<div class="hs-title">' + S.highScoreTitle + '</div>' + body;
+  }
+
+  // ---------- サウンドON/OFF(localStorageに設定を保存) ----------
+  const SOUND_PREF_KEY = "3ris_soundEnabled";
+  let soundEnabled = true;
+  try{
+    const saved = localStorage.getItem(SOUND_PREF_KEY);
+    if(saved !== null) soundEnabled = saved !== "false";
+  }catch(e){
+    soundEnabled = true;
+  }
+
+  function updateSoundButtonUI(){
+    const btn = document.getElementById("btnSound");
+    btn.textContent = soundEnabled ? "🔊" : "🔇";
+    btn.classList.toggle("muted", !soundEnabled);
+  }
+  updateSoundButtonUI();
+
+  function toggleSound(){
+    soundEnabled = !soundEnabled;
+    try{ localStorage.setItem(SOUND_PREF_KEY, String(soundEnabled)); }catch(e){}
+    updateSoundButtonUI();
+    if(soundEnabled) getAudioCtx();
+  }
+
+  // ---------- 模様ON/OFF(色覚多様性配慮、localStorageに設定を保存) ----------
+  const PATTERN_PREF_KEY = "3ris_patternsEnabled";
+  let patternsEnabled = false;
+  try{
+    const savedPattern = localStorage.getItem(PATTERN_PREF_KEY);
+    if(savedPattern !== null) patternsEnabled = savedPattern === "true";
+  }catch(e){
+    patternsEnabled = false;
+  }
+
+  function updatePatternButtonUI(){
+    const S = STRINGS[lang];
+    const btn = document.getElementById("btnPattern");
+    document.getElementById("patternBtnLabel").textContent = S.patternLabel;
+    document.getElementById("patternBtnState").textContent = patternsEnabled ? S.patternOn : S.patternOff;
+    btn.classList.toggle("accent", patternsEnabled);
+  }
+  updatePatternButtonUI();
+
+  function togglePatterns(){
+    playButtonBeepSE();
+    patternsEnabled = !patternsEnabled;
+    try{ localStorage.setItem(PATTERN_PREF_KEY, String(patternsEnabled)); }catch(e){}
+    updatePatternButtonUI();
+    // 盤面だけでなくNEXT/ホールド表示にも即座に反映する
+    updateNextPreview();
+    updateHoldUI();
+  }
+
+  // ---------- サウンド(Web Audio APIで生成、音声ファイル不要) ----------
+  let audioCtx = null;
+  function getAudioCtx(){
+    if(!audioCtx){
+      const AC = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AC();
+    }
+    if(audioCtx.state === "suspended") audioCtx.resume();
+    return audioCtx;
+  }
+
+  // 「ピッ」: UIボタン(一時停止・説明・模様・ホールド・ボーナス関連)を押した際の短い操作音
+  function playButtonBeepSE(){
+    if(!soundEnabled) return;
+    const ctx = getAudioCtx();
+    const now = ctx.currentTime;
+    const dur = 0.055;
+
+    const osc = ctx.createOscillator();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(1300, now);
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.22, now + 0.006);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + dur + 0.01);
+  }
+
+  // 「カッ」: ブロックの左右移動SE(旧・回転音を転用)
+  function playMoveSE(){
+    if(!soundEnabled) return;
+    const ctx = getAudioCtx();
+    const now = ctx.currentTime;
+    const dur = 0.1;
+
+    const osc = ctx.createOscillator();
+    osc.type = "triangle";
+    osc.frequency.setValueAtTime(480, now);
+    osc.frequency.exponentialRampToValueAtTime(900, now + dur * 0.7);
+    osc.frequency.exponentialRampToValueAtTime(760, now + dur);
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.25, now + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + dur);
+  }
+
+  // 「コッ」: ブロックの回転SE(旧・左右移動音を転用)
+  function playRotateSE(){
+    if(!soundEnabled) return;
+    const ctx = getAudioCtx();
+    const now = ctx.currentTime;
+    const dur = 0.045;
+
+    const osc = ctx.createOscillator();
+    osc.type = "square";
+    osc.frequency.setValueAtTime(720, now);
+    osc.frequency.exponentialRampToValueAtTime(560, now + dur);
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.22, now + 0.005);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + dur);
+  }
+
+  // 「コトッ」: ブロックの着地SE(ソフトドロップ・自然落下の着地含む)
+  function playLandSE(){
+    if(!soundEnabled) return;
+    const ctx = getAudioCtx();
+    const now = ctx.currentTime;
+    const dur = 0.13;
+
+    const osc = ctx.createOscillator();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(210, now);
+    osc.frequency.exponentialRampToValueAtTime(85, now + dur);
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.6, now + 0.006);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + dur);
+  }
+
+  // 「ドンッ」: ハードドロップSE(着地音より重い衝撃 + ノイズの厚み)
+  function playHardDropSE(){
+    if(!soundEnabled) return;
+    const ctx = getAudioCtx();
+    const now = ctx.currentTime;
+    const dur = 0.28;
+
+    const thud = ctx.createOscillator();
+    thud.type = "sine";
+    thud.frequency.setValueAtTime(150, now);
+    thud.frequency.exponentialRampToValueAtTime(38, now + dur);
+
+    const thudGain = ctx.createGain();
+    thudGain.gain.setValueAtTime(0.0001, now);
+    thudGain.gain.exponentialRampToValueAtTime(0.95, now + 0.01);
+    thudGain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+
+    thud.connect(thudGain).connect(ctx.destination);
+    thud.start(now);
+    thud.stop(now + dur);
+
+    const noiseDur = 0.09;
+    const bufferSize = Math.floor(ctx.sampleRate * noiseDur);
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for(let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+
+    const noise = ctx.createBufferSource();
+    noise.buffer = buffer;
+
+    const lowpass = ctx.createBiquadFilter();
+    lowpass.type = "lowpass";
+    lowpass.frequency.setValueAtTime(900, now);
+    lowpass.frequency.exponentialRampToValueAtTime(200, now + noiseDur);
+
+    const noiseGain = ctx.createGain();
+    noiseGain.gain.setValueAtTime(0.6, now);
+    noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + noiseDur);
+
+    noise.connect(lowpass).connect(noiseGain).connect(ctx.destination);
+    noise.start(now);
+    noise.stop(now + noiseDur);
+  }
+
+  // 単音を鳴らす共通ヘルパー(ライン消去SE用)
+  function playNote(ctx, freq, startOffset, dur, peakGain, type){
+    const start = ctx.currentTime + startOffset;
+    const osc = ctx.createOscillator();
+    osc.type = type || "triangle";
+    osc.frequency.setValueAtTime(freq, start);
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.exponentialRampToValueAtTime(peakGain, start + 0.008);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(start);
+    osc.stop(start + dur + 0.02);
+  }
+
+  // 仕上げの短いきらめき(高域ノイズのスパークル、ライン消去SE用)
+  function addSparkle(ctx, startOffset, dur, peakGain){
+    const start = ctx.currentTime + startOffset;
+    const bufferSize = Math.floor(ctx.sampleRate * dur);
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for(let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+
+    const noise = ctx.createBufferSource();
+    noise.buffer = buffer;
+
+    const highpass = ctx.createBiquadFilter();
+    highpass.type = "highpass";
+    highpass.frequency.setValueAtTime(4000, start);
+
+    const noiseGain = ctx.createGain();
+    noiseGain.gain.setValueAtTime(0.0001, start);
+    noiseGain.gain.exponentialRampToValueAtTime(peakGain, start + 0.01);
+    noiseGain.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+
+    noise.connect(highpass).connect(noiseGain).connect(ctx.destination);
+    noise.start(start);
+    noise.stop(start + dur);
+  }
+
+  // 1列消し(基準): 3音のアルペジオ+うっすらハモり
+  function playClear1(){
+    const ctx = getAudioCtx();
+    const notes = [523, 659, 880];
+    notes.forEach((freq, i) => {
+      const t = i * 0.065;
+      playNote(ctx, freq,       t, 0.18, 0.32, "triangle");
+      playNote(ctx, freq * 1.5, t, 0.14, 0.14, "sine");
+    });
+  }
+
+  // 2列消し: 4音のアルペジオ+ハモり(①より一段豪華に)
+  function playClear2(){
+    const ctx = getAudioCtx();
+    const notes = [523, 659, 784, 1047];
+    notes.forEach((freq, i) => {
+      const t = i * 0.06;
+      const isLast = i === notes.length - 1;
+      playNote(ctx, freq,       t, isLast ? 0.24 : 0.17, isLast ? 0.38 : 0.33, "triangle");
+      playNote(ctx, freq * 1.5, t, isLast ? 0.2  : 0.14, isLast ? 0.2  : 0.16, "sine");
+    });
+  }
+
+  // 3列消し: ②と同じ音形に、仕上げの短いきらめきを追加
+  function playClear3(){
+    const ctx = getAudioCtx();
+    const notes = [523, 659, 784, 1047];
+    notes.forEach((freq, i) => {
+      const t = i * 0.06;
+      const isLast = i === notes.length - 1;
+      playNote(ctx, freq,       t, isLast ? 0.26 : 0.18, isLast ? 0.42 : 0.34, "triangle");
+      playNote(ctx, freq * 1.5, t, isLast ? 0.22 : 0.15, isLast ? 0.24 : 0.17, "sine");
+    });
+    addSparkle(ctx, (notes.length - 1) * 0.06, 0.13, 0.15);
+  }
+
+  // 4列消し: 5音に拡張したアルペジオ+ハモり+きらめき(通常消しの中で最も豪華)
+  function playClear4(){
+    const ctx = getAudioCtx();
+    const notes = [523, 659, 784, 1047, 1319];
+    notes.forEach((freq, i) => {
+      const t = i * 0.055;
+      const isLast = i === notes.length - 1;
+      playNote(ctx, freq,       t, isLast ? 0.3  : 0.19, isLast ? 0.46 : 0.35, "triangle");
+      playNote(ctx, freq * 1.5, t, isLast ? 0.26 : 0.16, isLast ? 0.28 : 0.18, "sine");
+    });
+    addSparkle(ctx, (notes.length - 1) * 0.055, 0.16, 0.22);
+  }
+
+  // 消去したライン数に応じて①〜④のSEを鳴らし分ける
+  function playClearSE(lineCount){
+    if(!soundEnabled) return;
+    if(lineCount >= 4) playClear4();
+    else if(lineCount === 3) playClear3();
+    else if(lineCount === 2) playClear2();
+    else if(lineCount === 1) playClear1();
+  }
+
+  // ビームの芯となるノイズ(バンドパスで帯域をスイープさせ「シューーッ」を作る)
+  function playBeamNoise(ctx, startOffset, dur, peakGain, freqStart, freqEnd, q){
+    const start = ctx.currentTime + startOffset;
+    const bufferSize = Math.floor(ctx.sampleRate * dur);
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for(let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+
+    const noise = ctx.createBufferSource();
+    noise.buffer = buffer;
+
+    const bandpass = ctx.createBiquadFilter();
+    bandpass.type = "bandpass";
+    bandpass.Q.value = q;
+    bandpass.frequency.setValueAtTime(freqStart, start);
+    bandpass.frequency.exponentialRampToValueAtTime(freqEnd, start + dur);
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.exponentialRampToValueAtTime(peakGain, start + 0.025);
+    gain.gain.exponentialRampToValueAtTime(peakGain * 0.55, start + dur * 0.6);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+
+    noise.connect(bandpass).connect(gain).connect(ctx.destination);
+    noise.start(start);
+    noise.stop(start + dur);
+  }
+
+  // ビームの発振音本体(2本デチューンしたのこぎり波で太さを出す、高→低に落ちる)
+  function playBeamZap(ctx, startOffset, dur, peakGain, freqStart, freqEnd){
+    const start = ctx.currentTime + startOffset;
+    const detunes = [0, 12];
+    detunes.forEach((cents) => {
+      const osc = ctx.createOscillator();
+      osc.type = "sawtooth";
+      osc.frequency.setValueAtTime(freqStart, start);
+      osc.frequency.exponentialRampToValueAtTime(freqEnd, start + dur);
+      osc.detune.setValueAtTime(cents, start);
+
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime(peakGain, start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(start);
+      osc.stop(start + dur + 0.02);
+    });
+  }
+
+  // 低域の重み(ビーム全体の下に敷く唸り)
+  function playSubRumble(ctx, startOffset, dur, peakGain, freqStart, freqEnd){
+    const start = ctx.currentTime + startOffset;
+    const osc = ctx.createOscillator();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(freqStart, start);
+    osc.frequency.exponentialRampToValueAtTime(freqEnd, start + dur);
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.exponentialRampToValueAtTime(peakGain, start + 0.03);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(start);
+    osc.stop(start + dur + 0.02);
+  }
+
+  // 着弾の重い衝撃(低音の「ドンッ」)
+  function playImpactThud(ctx, startOffset, dur, peakGain, freqStart, freqEnd){
+    const start = ctx.currentTime + startOffset;
+    const osc = ctx.createOscillator();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(freqStart, start);
+    osc.frequency.exponentialRampToValueAtTime(freqEnd, start + dur);
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.exponentialRampToValueAtTime(peakGain, start + 0.012);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(start);
+    osc.stop(start + dur + 0.02);
+  }
+
+  // 着弾の破裂ノイズ(低域寄りのノイズバーストで爆発感を足す。きらめきではなく破壊音)
+  function playImpactBurst(ctx, startOffset, dur, peakGain, cutoffStart, cutoffEnd){
+    const start = ctx.currentTime + startOffset;
+    const bufferSize = Math.floor(ctx.sampleRate * dur);
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for(let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+
+    const noise = ctx.createBufferSource();
+    noise.buffer = buffer;
+
+    const lowpass = ctx.createBiquadFilter();
+    lowpass.type = "lowpass";
+    lowpass.frequency.setValueAtTime(cutoffStart, start);
+    lowpass.frequency.exponentialRampToValueAtTime(cutoffEnd, start + dur);
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.exponentialRampToValueAtTime(peakGain, start + 0.008);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+
+    noise.connect(lowpass).connect(gain).connect(ctx.destination);
+    noise.start(start);
+    noise.stop(start + dur);
+  }
+
+  // 任意3列消去ボーナス: 太く重いビーム+大きな着弾
+  function playBonus3SE(){
+    if(!soundEnabled) return;
+    const ctx = getAudioCtx();
+    const beamDur = 0.46;
+
+    playBeamNoise(ctx, 0,    beamDur,        0.85, 7000, 190, 8);
+    playBeamNoise(ctx, 0.03, beamDur - 0.05, 0.55, 4600, 240, 5.5);
+    playBeamZap(ctx, 0, beamDur, 0.55, 1500, 90);
+    playSubRumble(ctx, 0, beamDur, 0.75, 115, 26);
+
+    const impactAt = beamDur * 0.85;
+    playImpactThud(ctx, impactAt, 0.3, 1.0, 155, 28);
+    playImpactBurst(ctx, impactAt, 0.22, 0.7, 2200, 130);
+    playImpactBurst(ctx, impactAt + 0.05, 0.16, 0.4, 1200, 100);
+  }
+
+  // 5列消去ボーナス(3盤面同時): ①よりさらに太く長いビーム+「ドドドーーーン」と
+  // 3段で畳みかけて最後に長く伸びる着弾
+  function playBonus5SE(){
+    if(!soundEnabled) return;
+    const ctx = getAudioCtx();
+    const beamDur = 0.56;
+
+    playBeamNoise(ctx, 0,    beamDur,        0.95, 8500, 170, 9);
+    playBeamNoise(ctx, 0.03, beamDur - 0.05, 0.65, 5800, 220, 6.5);
+    playBeamNoise(ctx, 0.06, beamDur - 0.12, 0.45, 3600, 260, 5);
+    playBeamZap(ctx, 0, beamDur, 0.65, 1900, 80);
+    playSubRumble(ctx, 0, beamDur, 0.85, 130, 24);
+
+    const impactAt = beamDur * 0.85;
+
+    playImpactThud(ctx, impactAt,        0.12, 0.85, 165, 70);
+    playImpactBurst(ctx, impactAt,       0.1,  0.55, 2400, 300);
+
+    playImpactThud(ctx, impactAt + 0.1,  0.14, 0.95, 155, 55);
+    playImpactBurst(ctx, impactAt + 0.1, 0.12, 0.6,  2200, 250);
+
+    playImpactThud(ctx, impactAt + 0.22, 0.5,  1.0,  145, 22);
+    playImpactBurst(ctx, impactAt + 0.22, 0.3, 0.75, 2600, 110);
+    playSubRumble(ctx, impactAt + 0.22, 0.55, 0.7, 90, 20);
+  }
+
+  // ベル系の単音(倍音を少し足してきらびやかに、×3/×7ボーナスSE用)
+  function playBell(ctx, freq, startOffset, dur, peakGain){
+    const start = ctx.currentTime + startOffset;
+
+    const osc1 = ctx.createOscillator();
+    osc1.type = "sine";
+    osc1.frequency.setValueAtTime(freq, start);
+
+    const osc2 = ctx.createOscillator();
+    osc2.type = "sine";
+    osc2.frequency.setValueAtTime(freq * 2.01, start);
+
+    const gain1 = ctx.createGain();
+    gain1.gain.setValueAtTime(0.0001, start);
+    gain1.gain.exponentialRampToValueAtTime(peakGain, start + 0.006);
+    gain1.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+
+    const gain2 = ctx.createGain();
+    gain2.gain.setValueAtTime(0.0001, start);
+    gain2.gain.exponentialRampToValueAtTime(peakGain * 0.35, start + 0.006);
+    gain2.gain.exponentialRampToValueAtTime(0.0001, start + dur * 0.6);
+
+    osc1.connect(gain1).connect(ctx.destination);
+    osc2.connect(gain2).connect(ctx.destination);
+    osc1.start(start); osc1.stop(start + dur + 0.02);
+    osc2.start(start); osc2.stop(start + dur + 0.02);
+  }
+
+  // 仕上げのきらめき(高域ノイズのスパークル、×3/×7ボーナスSEの余韻用)
+  function playShimmerTail(ctx, startOffset, dur, peakGain){
+    const start = ctx.currentTime + startOffset;
+    const bufferSize = Math.floor(ctx.sampleRate * dur);
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for(let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+
+    const noise = ctx.createBufferSource();
+    noise.buffer = buffer;
+
+    const highpass = ctx.createBiquadFilter();
+    highpass.type = "highpass";
+    highpass.frequency.setValueAtTime(5000, start);
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.exponentialRampToValueAtTime(peakGain, start + 0.015);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+
+    noise.connect(highpass).connect(gain).connect(ctx.destination);
+    noise.start(start);
+    noise.stop(start + dur);
+  }
+
+  // ×3(2盤面同時消去): 「シャラーン」短い上昇フレーズ+最後に伸びる余韻
+  function playX3SE(){
+    if(!soundEnabled) return;
+    const ctx = getAudioCtx();
+    const notes = [784, 988, 1175, 1568];
+    notes.forEach((freq, i) => {
+      playBell(ctx, freq, i * 0.04, 0.22, 0.26);
+    });
+    const finalAt = notes.length * 0.04;
+    playBell(ctx, 1976, finalAt, 0.45, 0.34);
+    playShimmerTail(ctx, finalAt, 0.35, 0.22);
+  }
+
+  // ×7(3盤面同時消去): 「シャララララーン」長めの上昇フレーズ+より大きく長い余韻
+  function playX7SE(){
+    if(!soundEnabled) return;
+    const ctx = getAudioCtx();
+    const notes = [659, 784, 880, 988, 1175, 1319, 1568, 1760];
+    notes.forEach((freq, i) => {
+      playBell(ctx, freq, i * 0.035, 0.22, 0.28);
+    });
+    const finalAt = notes.length * 0.035;
+    playBell(ctx, 2093, finalAt, 0.6, 0.42);
+    playShimmerTail(ctx, finalAt, 0.5, 0.3);
+    playShimmerTail(ctx, finalAt + 0.08, 0.3, 0.18);
+  }
+
+  // 「ピロリロリーン」: 昔のゲームの1UP風アルペジオ+最後に伸びる音(3列消去ボーナス獲得時)
+  function playBonusGainSE(){
+    if(!soundEnabled) return;
+    const ctx = getAudioCtx();
+    const notes = [1319, 1568, 1319, 1047, 1175, 1568]; // ピ・ロ・リ・ロ・リ・ー
+    notes.forEach((freq, i) => {
+      playNote(ctx, freq, i * 0.08, 0.12, 0.28, "square");
+    });
+    const finalAt = notes.length * 0.08;
+    playNote(ctx, 2093, finalAt, 0.38, 0.3, "triangle"); // ン(伸ばす)
+  }
+
+  // 「ピロリロリーン」: ゲーム開始・Try Again押下時のファミコン風スタートSE(デモのパターンB)
+  function playGameStartSE(){
+    if(!soundEnabled) return;
+    const ctx = getAudioCtx();
+    const notes = [392.00, 523.25, 659.25, 783.99, 1046.50, 1318.51]; // G4,C5,E5,G5,C6,E6
+    notes.forEach((freq, i) => {
+      playNote(ctx, freq, i * 0.055, 0.11, 0.26, "square");
+    });
+    const finalAt = notes.length * 0.055;
+    [1046.50, 1318.51, 783.99].forEach(freq => { // C6,E6,G5の和音
+      playNote(ctx, freq, finalAt, 0.55, 0.24, "square");
+    });
+    playShimmerTail(ctx, finalAt, 0.55, 0.25);
+  }
+
+  // ブラス風の厚みを出すため、わずかにデチューンした音を重ねる(パーフェクトクリアSE用)
+  function playBrassNote(ctx, freq, startOffset, dur, peakGain){
+    playNote(ctx, freq,         startOffset, dur, peakGain,       "sawtooth");
+    playNote(ctx, freq * 1.004, startOffset, dur, peakGain * 0.6, "sawtooth");
+    playNote(ctx, freq * 0.997, startOffset, dur, peakGain * 0.5, "square");
+  }
+
+  // 低音の「ドン」: パーフェクトクリアSEの出だしとコード部の一打で重みを出す
+  function playThump(ctx, startOffset){
+    const start = ctx.currentTime + startOffset;
+    const dur = 0.22;
+    const osc = ctx.createOscillator();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(140, start);
+    osc.frequency.exponentialRampToValueAtTime(50, start + dur);
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.exponentialRampToValueAtTime(0.8, start + 0.006);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(start); osc.stop(start + dur);
+  }
+
+  // 「パン・パカ・パーン」: パーフェクトクリア(全消し)達成時の豪華なファンファーレ
+  function playPerfectClearSE(){
+    if(!soundEnabled) return;
+    const ctx = getAudioCtx();
+
+    playThump(ctx, 0);
+    playBrassNote(ctx, 523.25, 0,    0.11, 0.30); // パ(ン) C5
+    playBrassNote(ctx, 659.25, 0.11, 0.11, 0.30); // パ    E5
+    playBrassNote(ctx, 783.99, 0.22, 0.13, 0.32); // カ    G5
+
+    // パーン: 主和音を長く伸ばす
+    const chordAt = 0.36;
+    playThump(ctx, chordAt);
+    [523.25, 659.25, 783.99, 1046.5].forEach((freq) => {
+      playBrassNote(ctx, freq, chordAt, 0.9, 0.26);
+    });
+    playShimmerTail(ctx, chordAt, 0.8, 0.28);
+    playShimmerTail(ctx, chordAt + 0.15, 0.5, 0.18);
+  }
+
+  // パーフェクトクリアのトースト表示(盤面ごとではなく#boards全体に大きく表示)
+  function showPerfectClearToast(){
+    const toast = document.getElementById("pcToast");
+    const main = document.getElementById("pcMain");
+    const sparkle = document.getElementById("pcSparkle");
+    main.textContent = lang === "ja" ? "全消し！" : "PERFECT CLEAR!";
+    toast.classList.remove("show"); void toast.offsetWidth;
+    sparkle.classList.remove("show"); void sparkle.offsetWidth;
+    toast.classList.add("show");
+    sparkle.classList.add("show");
+  }
+
+  // 「キラッ」: Tスピン(Mini)成功SE。短く軽い二音の煌めき(約150ms)
+  function playTSpinMiniSE(){
+    if(!soundEnabled) return;
+    const ctx = getAudioCtx();
+    playNote(ctx, 1319, 0, 0.09, 0.28, "square");
+    playNote(ctx, 1976, 0.05, 0.12, 0.3, "square");
+    playShimmerTail(ctx, 0.05, 0.15, 0.18);
+  }
+
+  // 「コトン→パリン」: Tスピン(Full)成功SE。深くはまり込む着地音+きらめき(約400ms)
+  function playTSpinSE(){
+    if(!soundEnabled) return;
+    const ctx = getAudioCtx();
+    const now = ctx.currentTime;
+    const dur = 0.11;
+    const osc = ctx.createOscillator();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(180, now);
+    osc.frequency.exponentialRampToValueAtTime(75, now + dur);
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.5, now + 0.006);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(now); osc.stop(now + dur);
+    playBell(ctx, 2093, dur * 0.8, 0.28, 0.4);
+    playBell(ctx, 2637, dur * 0.85, 0.22, 0.25);
+    playShimmerTail(ctx, dur * 0.8, 0.3, 0.22);
+  }
+
+  // 「ザシュッ」: 何かが刺さって減退していくような衝撃音(約400ms)。シェイクと同時に鳴らす。
+  function playImpactSound(){
+    if(!soundEnabled) return;
+    const ctx = getAudioCtx();
+    const now = ctx.currentTime;
+    const duration = 0.4;
+
+    // 高域から低域へ落ちるノイズの「シュッ」成分
+    const bufferSize = Math.floor(ctx.sampleRate * duration);
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for(let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+
+    const noise = ctx.createBufferSource();
+    noise.buffer = buffer;
+
+    const bandpass = ctx.createBiquadFilter();
+    bandpass.type = "bandpass";
+    bandpass.frequency.setValueAtTime(7500, now);
+    bandpass.frequency.exponentialRampToValueAtTime(700, now + duration);
+    bandpass.Q.value = 0.7;
+
+    const noiseGain = ctx.createGain();
+    noiseGain.gain.setValueAtTime(0.9, now);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+    noise.connect(bandpass).connect(noiseGain).connect(ctx.destination);
+    noise.start(now);
+    noise.stop(now + duration);
+
+    // 「刺さった」重みを出す低い衝撃音
+    const thud = ctx.createOscillator();
+    thud.type = "sine";
+    thud.frequency.setValueAtTime(240, now);
+    thud.frequency.exponentialRampToValueAtTime(45, now + 0.15);
+    const thudGain = ctx.createGain();
+    thudGain.gain.setValueAtTime(0.5, now);
+    thudGain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+    thud.connect(thudGain).connect(ctx.destination);
+    thud.start(now);
+    thud.stop(now + 0.2);
+  }
+
+  // 「デデン(デデン)(デデン……)」: 低く沈む失敗音を減退しながら3回、合計約2秒
+  function playGameOverSound(){
+    if(!soundEnabled) return;
+    const ctx = getAudioCtx();
+    const now = ctx.currentTime;
+    const hits = [
+      { t: 0,    freq: 200, vol: 0.9 },
+      { t: 0.65, freq: 180, vol: 0.6 },
+      { t: 1.3,  freq: 160, vol: 0.4 },
+    ];
+    hits.forEach(hit => {
+      const start = now + hit.t;
+      const hitDur = 0.6;
+
+      const osc = ctx.createOscillator();
+      osc.type = "sawtooth";
+      osc.frequency.setValueAtTime(hit.freq, start);
+      osc.frequency.exponentialRampToValueAtTime(hit.freq * 0.85, start + hitDur);
+
+      const lowpass = ctx.createBiquadFilter();
+      lowpass.type = "lowpass";
+      lowpass.frequency.value = 700;
+
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime(hit.vol, start + 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + hitDur);
+
+      osc.connect(lowpass).connect(gain).connect(ctx.destination);
+      osc.start(start);
+      osc.stop(start + hitDur + 0.05);
+
+      // サブオクターブで重みを追加
+      const sub = ctx.createOscillator();
+      sub.type = "sine";
+      sub.frequency.setValueAtTime(hit.freq / 2, start);
+      const subGain = ctx.createGain();
+      subGain.gain.setValueAtTime(0.0001, start);
+      subGain.gain.exponentialRampToValueAtTime(hit.vol * 0.7, start + 0.03);
+      subGain.gain.exponentialRampToValueAtTime(0.001, start + hitDur);
+      sub.connect(subGain).connect(ctx.destination);
+      sub.start(start);
+      sub.stop(start + hitDur + 0.05);
+    });
+  }
+
+  // ---------- 開始・終了・リスタート ----------
+  function endGame(){
+    if(gameOver) return;
+    gameOver = true;
+    running = false;
+    registerFinalScore(score);
+    gameOverEffect = { startTs: performance.now() };
+    playImpactSound();
+    setTimeout(showGameOverOverlay, GAMEOVER_TOTAL_MS + 20);
+  }
+
+  function showGameOverOverlay(){
+    gameOverEffect = null;
+    playGameOverSound();
+    const overlay = document.getElementById("overlay");
+    overlay.classList.remove("hidden");
+    const S = STRINGS[lang];
+    document.getElementById("startCard").innerHTML =
+      '<h2 class="go-title">GAME OVER!</h2>' +
+      '<p class="final-score-line">Score: <b>' + score + '</b></p>' +
+      '<div class="final-stats-row">' +
+        '<span>Level: <b>' + level + '</b></span>' +
+        '<span>Line: <b>' + linesTotal + '</b></span>' +
+        '<span>Wave: <b>' + waveNumber + '</b></span>' +
+      '</div>' +
+      '<button class="primary-btn" id="restartBtn">Try Again</button>' +
+      '<div class="hs-box">' +
+        (isNewHighScore ? '<div class="hs-new-record">' + S.newRecordMessage + '</div>' : '') +
+        highScoreListHTML() +
+      '</div>';
+    document.getElementById("restartBtn").addEventListener("click", () => {
+      playGameStartSE();
+      resetGame();
+    });
+  }
+
+  function resetGame(){
+    sequence = [];
+    for(const b of order){
+      b.grid = Array.from({length: ROWS}, () => Array(COLS).fill(null));
+      b.piece = null; b.active = false; b.locked = true; b.linesThisWave = 0;
+      b.b2bCount = 0; b.b2bMultiplier = 1; b.pcThisWave = false;
+      b.grounded = false; b.lockTimer = 0; b.lockResets = 0;
+      b.hold = null;
+    }
+    waveNumber = 0; score = 0; linesTotal = 0; level = 1; comboCount = 0; canHold = true;
+    dropInterval = 1200; dropAccumulator = 0;
+    gameOver = false; paused = false; running = true;
+    gameOverEffect = null;
+    mode = "playing"; bonusStock = 0; scoreBonusCount = 0; fiveRowBonusPending = false;
+    bonusRow = 0; bonusBandSize = 3; bonusScored = true; bonusOnConfirm = null; bonusConsumesStock = false;
+    document.getElementById("bonusBanner").classList.remove("show");
+    document.getElementById("bonusCancelConfirm").classList.remove("show");
+    updateBonusStockUI();
+    document.getElementById("scoreVal").textContent = 0;
+    document.getElementById("levelVal").textContent = 1;
+    document.getElementById("linesVal").textContent = 0;
+    document.getElementById("waveVal").textContent = 0;
+    document.getElementById("overlay").classList.add("hidden");
+    applyStaticTexts();
+    updatePatternButtonUI();
+    resize();
+    startWave();
+  }
+
+  function togglePause(){
+    if(gameOver || !running || mode !== "playing") return;
+    playButtonBeepSE();
+    paused = !paused;
+    document.getElementById("btnPause").textContent = paused ? STRINGS[lang].resume : STRINGS[lang].pause;
+  }
+
+  function showRestartConfirm(){
+    playButtonBeepSE();
+    if(!running && !gameOver){
+      resetGame();
+      return;
+    }
+    const wasPaused = paused;
+    paused = true;
+    const overlay = document.getElementById("overlay");
+    overlay.classList.remove("hidden");
+    const S = STRINGS[lang];
+    document.getElementById("startCard").innerHTML =
+      '<h2>' + S.restartConfirmTitle + '</h2>' +
+      '<p>' + S.restartConfirmDesc + '</p>' +
+      '<button class="primary-btn" id="confirmRestartBtn">' + S.restartConfirmYes + '</button>' +
+      '<button class="primary-btn secondary" id="cancelRestartBtn">' + S.restartConfirmCancel + '</button>';
+    document.getElementById("confirmRestartBtn").addEventListener("click", () => {
+      playButtonBeepSE();
+      resetGame();
+    });
+    document.getElementById("cancelRestartBtn").addEventListener("click", () => {
+      playButtonBeepSE();
+      overlay.classList.add("hidden");
+      paused = wasPaused;
+    });
+  }
+
+  // ---------- 左右移動の長押し連続移動(DAS/ARR) ----------
+  // 現代のテトリス実装に倣い、押した瞬間に1回動き、DAS_MSだけ押し続けると
+  // その後はARR_MS間隔で連続的に(高速に)移動し続ける。
+  const DAS_MS = 170; // 押し始めてから連続移動が始まるまでの遅延
+  const ARR_MS = 40;  // 連続移動の間隔
+  let dasTimer = null, arrTimer = null;
+
+  function startAutoMove(dir){
+    stopAutoMove();
+    moveAll(dir);
+    dasTimer = setTimeout(() => {
+      arrTimer = setInterval(() => { moveAll(dir); }, ARR_MS);
+    }, DAS_MS);
+  }
+  function stopAutoMove(){
+    if(dasTimer){ clearTimeout(dasTimer); dasTimer = null; }
+    if(arrTimer){ clearInterval(arrTimer); arrTimer = null; }
+  }
+  window.addEventListener("blur", stopAutoMove);
+
+  // ---------- 入力 ----------
+  window.addEventListener("keydown", (e) => {
+    if(["ArrowLeft","ArrowRight","ArrowDown","ArrowUp","Space"," "].includes(e.key) || e.code === "Space"){
+      e.preventDefault();
+    }
+    if(mode === "bonusSelect"){
+      if(e.key === "ArrowUp") moveBonusRow(-1);
+      else if(e.key === "ArrowDown") moveBonusRow(1);
+      else if(e.code === "Space" || e.key === "Enter") confirmBonusClear();
+      else if(e.key === "Escape") requestCancelBonusSelect();
+      return;
+    }
+    if(e.key === "ArrowLeft"){ if(!e.repeat) startAutoMove(-1); }
+    else if(e.key === "ArrowRight"){ if(!e.repeat) startAutoMove(1); }
+    else if(e.key === "ArrowDown") softDropStep();
+    else if(e.key === "ArrowUp" || e.key === "x" || e.key === "X") rotateAllCW();
+    else if(e.key === "z" || e.key === "Z") rotateAllCCW();
+    else if(e.code === "Space") hardDropAll();
+    else if(e.key === "p" || e.key === "P") togglePause();
+    else if(e.key === "b" || e.key === "B") activateStock();
+    else if(e.key === "c" || e.key === "C") useHold();
+  });
+  window.addEventListener("keyup", (e) => {
+    if(e.key === "ArrowLeft" || e.key === "ArrowRight") stopAutoMove();
+  });
+
+  function bindPad(id, fn){
+    const el = document.getElementById(id);
+    el.addEventListener("touchstart", (e) => { e.preventDefault(); fn(); }, {passive:false});
+    el.addEventListener("click", fn);
+  }
+  // 左右移動ボタンだけは長押しで連続移動させたいため、押下/解放を別途扱う
+  function bindHoldMove(id, dir){
+    const el = document.getElementById(id);
+    const start = (e) => { e.preventDefault(); startAutoMove(dir); };
+    el.addEventListener("touchstart", start, {passive:false});
+    el.addEventListener("touchend", stopAutoMove);
+    el.addEventListener("touchcancel", stopAutoMove);
+    el.addEventListener("mousedown", start);
+    el.addEventListener("mouseup", stopAutoMove);
+    el.addEventListener("mouseleave", stopAutoMove);
+  }
+  bindHoldMove("btnLeft", -1);
+  bindHoldMove("btnRight", 1);
+  bindPad("btnRotateCCW", () => rotateAllCCW());
+  bindPad("btnRotate", () => rotateAllCW());
+  bindPad("btnSoft", () => softDropStep());
+  bindPad("btnHard", () => hardDropAll());
+  bindPad("btnHold", () => useHold());
+  bindPad("btnPause", () => togglePause());
+  bindPad("btnUseBonus", () => activateStock());
+  bindPad("btnRestart", () => showRestartConfirm());
+  bindPad("btnSound", () => toggleSound());
+  bindPad("btnPattern", () => togglePatterns());
+  bindPad("btnInfo", () => showInfoOverlay());
+  bindPad("bonusUp", () => moveBonusRow(-1));
+  bindPad("bonusDown", () => moveBonusRow(1));
+  bindPad("bonusConfirm", () => confirmBonusClear());
+  bindPad("bonusCancel", () => requestCancelBonusSelect());
+  bindPad("bonusCancelConfirmYes", () => {
+    playButtonBeepSE();
+    document.getElementById("bonusCancelConfirm").classList.remove("show");
+    cancelBonusSelect();
+  });
+  bindPad("bonusCancelConfirmNo", () => {
+    playButtonBeepSE();
+    document.getElementById("bonusCancelConfirm").classList.remove("show");
+  });
+
+  document.getElementById("startJaBtn").addEventListener("click", () => {
+    lang = "ja";
+    getAudioCtx(); // 初回のユーザー操作でAudioContextを起動しておく
+    playGameStartSE();
+    document.getElementById("overlay").classList.add("hidden");
+    resetGame();
+  });
+  document.getElementById("startEnBtn").addEventListener("click", () => {
+    lang = "en";
+    getAudioCtx();
+    playGameStartSE();
+    document.getElementById("overlay").classList.add("hidden");
+    resetGame();
+  });
+
+  window.addEventListener("resize", resize);
+
+  // ---------- 初期化 ----------
+  document.getElementById("startHighScores").innerHTML = highScoreListHTML();
+  resize();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

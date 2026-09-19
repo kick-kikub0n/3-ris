@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>3'ris</title>
+<style>
+  :root{
+    --bg: #0d0f1a;
+    --panel: #171a2b;
+    --panel-2: #1f2338;
+    --line: #2a2f4a;
+    --text: #e8e8f0;
+    --muted: #7d81a3;
+    --left: #6a8dff;
+    --center: #e8e8f0;
+    --right: #ff6ac1;
+    --danger: #ff4f6d;
+    --gold: #f4d35e;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0; padding:0; background:var(--bg); color:var(--text);
+    font-family: system-ui, -apple-system, "Hiragino Sans", "Yu Gothic", sans-serif;
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior: none;
+  }
+  #app{
+    max-width: 980px; margin: 0 auto; padding: 14px 10px 28px;
+    min-height: 100vh;
+  }
+  h1{
+    font-size: 20px; letter-spacing: 0.04em; margin: 0 0 2px;
+    font-weight: 800;
+  }
+  .subtitle{ color: var(--muted); font-size: 12px; margin: 0 0 12px; }
+
+  .link-bar{
+    height: 3px; border-radius: 3px; margin: 0 0 14px;
+    background: linear-gradient(90deg, var(--left), var(--center), var(--right));
+    opacity: 0.55; transition: opacity .15s, transform .15s;
+  }
+  .link-bar.pulse{ opacity: 1; transform: scaleY(2.2); }
+
+  .stats{
+    display:flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px;
+  }
+  .stat{
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+    padding: 6px 12px; font-size: 12px; color: var(--muted); min-width: 74px;
+  }
+  .stat b{ display:block; font-size: 16px; color: var(--text); font-weight:700; margin-top:2px; }
+
+  #bonusBanner{
+    display:none;
+    background: linear-gradient(90deg, rgba(244,211,94,0.16), rgba(244,211,94,0.05));
+    border: 1px solid var(--gold); border-radius: 10px;
+    padding: 10px 12px; margin-bottom: 12px;
+  }
+  #bonusBanner.show{ display:flex; flex-direction:column; gap:8px; align-items:center; }
+  #bonusBanner .bonus-title{ color: var(--gold); font-weight:800; font-size: 13.5px; text-align:center; }
+  #bonusBanner .bonus-hint{ color: var(--muted); font-size: 11.5px; text-align:center; }
+  #bonusBanner .bonus-controls{ display:flex; gap:8px; }
+  #bonusBanner .pad-btn{ padding: 8px 16px; font-size:14px; }
+
+  #boards{
+    display:flex; gap: 10px; justify-content:center; flex-wrap: wrap;
+    position: relative;
+  }
+  .board-col{ display:flex; flex-direction:column; align-items:center; gap:6px; }
+  .board-label{
+    font-size: 11px; font-weight: 700; letter-spacing: 0.05em;
+    padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line);
+  }
+  .board-label.left{ color: var(--left); border-color: var(--left); }
+  .board-label.center{ color: var(--center); border-color: #4a4f72; }
+  .board-label.right{ color: var(--right); border-color: var(--right); }
+
+  .next-box{
+    display:flex; align-items:center; gap:6px; height: 64px;
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px;
+    padding: 4px 8px;
+  }
+  .next-box .next-label{ font-size: 10px; color: var(--muted); letter-spacing: 0.08em; }
+  .next-box canvas{ display:block; }
+  .next-box.spacer{ visibility: hidden; }
+
+  .board-wrap{ position:relative; }
+  canvas.board{
+    background: var(--panel); border-radius: 6px; display:block;
+    border: 1px solid var(--line);
+  }
+  .board-wrap.left canvas{ box-shadow: 0 0 0 1px rgba(106,141,255,0.25) inset; }
+  .board-wrap.right canvas{ box-shadow: 0 0 0 1px rgba(255,106,193,0.25) inset; }
+
+  .standby{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    color: var(--muted); font-size: 11px; letter-spacing: 0.1em; pointer-events:none;
+    background: rgba(13,15,26,0.35);
+  }
+
+  .bonus-toast{
+    position:absolute; top: 40%; left:50%; transform: translate(-50%,-50%) scale(0.8);
+    font-size: 30px; font-weight: 800; color: var(--gold); opacity:0; pointer-events:none;
+    text-shadow: 0 0 14px rgba(244,211,94,0.7);
+    transition: opacity .15s, transform .15s;
+    white-space: nowrap; z-index: 5;
+  }
+  .bonus-toast.show{ opacity:1; transform: translate(-50%,-50%) scale(1.05); }
+
+  #controls{
+    margin-top: 16px; display:flex; flex-direction:column; align-items:center; gap: 10px;
+  }
+  .pad-row{ display:flex; gap: 10px; }
+  .pad-btn{
+    background: var(--panel-2); border: 1px solid var(--line); color: var(--text);
+    border-radius: 10px; padding: 12px 18px; font-size: 15px; font-weight:700;
+    user-select:none; min-width: 56px; text-align:center;
+    transition: box-shadow .2s, opacity .2s;
+  }
+  .pad-btn:active{ background: #2a2f4a; }
+  .pad-btn.wide{ min-width: 120px; }
+  .pad-btn.accent{ border-color: var(--gold); color: var(--gold); }
+  .pad-btn.danger{ border-color: var(--danger); color: var(--danger); }
+  .pad-btn.disabled{ opacity: 0.35; pointer-events:none; }
+  .pad-btn.flash{ box-shadow: 0 0 0 3px rgba(244,211,94,0.5); }
+
+  .hint{ color: var(--muted); font-size: 11px; text-align:center; max-width: 480px; line-height:1.7; }
+
+  #overlay{
+    position: fixed; inset:0; background: rgba(8,9,16,0.92);
+    display:flex; align-items:center; justify-content:center; z-index: 20;
+    padding: 20px;
+  }
+  #overlay.hidden{ display:none; }
+  .card{
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+    padding: 22px 22px 26px; max-width: 420px; width:100%;
+  }
+  .card h2{ margin: 0 0 10px; font-size: 20px; }
+  .card p{ color: var(--muted); font-size: 13px; line-height: 1.8; margin: 6px 0; }
+  .rule-list{ margin: 10px 0 16px; padding-left: 0; list-style:none; }
+  .rule-list li{
+    font-size: 12.5px; color: var(--text); line-height:1.7; padding-left: 16px;
+    position: relative; margin-bottom: 6px;
+  }
+  .rule-list li::before{ content:"・"; position:absolute; left:0; color: var(--muted); }
+  .primary-btn{
+    display:block; width:100%; margin-top: 14px; padding: 12px; border:none;
+    border-radius: 10px; background: var(--gold); color:#221a00; font-weight:800;
+    font-size: 15px;
+  }
+  .primary-btn:active{ opacity: 0.85; }
+  .primary-btn.secondary{ background: var(--panel-2); color: var(--text); border: 1px solid var(--line); }
+  .final-score{ font-size: 30px; font-weight:800; color: var(--gold); margin: 10px 0 0; }
+</style>
+</head>
+<body>
+<div id="app">
+  <h1>3'ris</h1>
+  <p class="subtitle">左・中央・右、3つの盤面が連動する変則テ○リス</p>
+  <div class="link-bar" id="linkBar"></div>
+
+  <div class="stats">
+    <div class="stat">Score<b id="scoreVal">0</b></div>
+    <div class="stat">Level<b id="levelVal">1</b></div>
+    <div class="stat">Line<b id="linesVal">0</b></div>
+    <div class="stat">Wave<b id="waveVal">0</b></div>
+  </div>
+
+  <div id="bonusBanner">
+    <div class="bonus-title" id="bonusTitle">Bonus</div>
+    <div class="bonus-hint" id="bonusHint">↑↓で位置を選び、決定で消去します</div>
+    <div class="bonus-controls">
+      <div class="pad-btn" id="bonusUp">↑</div>
+      <div class="pad-btn accent" id="bonusConfirm">消す</div>
+      <div class="pad-btn" id="bonusDown">↓</div>
+    </div>
+  </div>
+
+  <div id="boards">
+    <div class="board-col">
+      <div class="next-box spacer" aria-hidden="true">
+        <span class="next-label">NEXT</span>
+        <canvas width="56" height="56"></canvas>
+      </div>
+      <div class="board-wrap left">
+        <canvas class="board" id="canvasLeft"></canvas>
+        <div class="standby" id="standbyLeft">Stand-by</div>
+        <div class="bonus-toast" id="toastLeft"></div>
+      </div>
+    </div>
+    <div class="board-col">
+      <div class="next-box">
+        <span class="next-label">NEXT</span>
+        <canvas id="nextCanvas" width="56" height="56"></canvas>
+      </div>
+      <div class="board-wrap center">
+        <canvas class="board" id="canvasCenter"></canvas>
+        <div class="bonus-toast" id="toastCenter"></div>
+      </div>
+    </div>
+    <div class="board-col">
+      <div class="next-box spacer" aria-hidden="true">
+        <span class="next-label">NEXT</span>
+        <canvas width="56" height="56"></canvas>
+      </div>
+      <div class="board-wrap right">
+        <canvas class="board" id="canvasRight"></canvas>
+        <div class="bonus-toast" id="toastRight"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="controls">
+    <div class="pad-row">
+      <div class="pad-btn" id="btnLeft">←</div>
+      <div class="pad-btn" id="btnRotate">↻</div>
+      <div class="pad-btn" id="btnRight">→</div>
+    </div>
+    <div class="pad-row">
+      <div class="pad-btn wide" id="btnSoft">ソフトドロップ ↓</div>
+      <div class="pad-btn wide accent" id="btnHard">ハードドロップ</div>
+    </div>
+    <div class="pad-row">
+      <div class="pad-btn" id="btnPause">一時停止</div>
+      <div class="pad-btn accent disabled" id="btnUseBonus">3列消去 (0)</div>
+    </div>
+    <div class="pad-row">
+      <div class="pad-btn danger" id="btnRestart">Restart</div>
+    </div>
+    <p class="hint">キーボード: ←→移動 / ↑or Xで回転 / ↓ソフトドロップ / Spaceハードドロップ / Pで一時停止 / Bでボーナス使用<br>3つの盤面はすべて同じ操作で動きます。1つでも積み上がったら終了です。</p>
+  </div>
+</div>
+
+<div id="overlay">
+  <div class="card" id="startCard">
+    <h2>3'ris — ルール</h2>
+    <ul class="rule-list">
+      <li>中央を基本盤面としたとき、右盤面はピースが90度回転した状態で降ってきます。</li>
+      <li>左盤面は中央の1つ前のピースが降ってきます（最初の1手は空です）。</li>
+      <li>3盤面は同じ操作で連動して動きます。どこか1つでも積み上がったら終了。</li>
+      <li>2盤面同時・3盤面同時でラインを消去するとスコアボーナス。</li>
+      <li>一定ウェーブごと及び一定スコア到達ごとに3列消去ボーナスを獲得、1個までストック・任意のタイミングで使用できます。</li>
+    </ul>
+    <button class="primary-btn" id="startBtn">Start</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  // ---------- 基本定数 ----------
+  const COLS = 10, ROWS = 20;
+  const TYPES = ["I","O","T","S","Z","J","L"];
+  const COLORS = {
+    I: "#4dd9ec", O: "#f4d35e", T: "#b388ff",
+    S: "#5fd068", Z: "#ef5354", J: "#4d7cff", L: "#ff9f4d"
+  };
+
+  const SHAPES = {
+    I: [
+      [[0,1],[1,1],[2,1],[3,1]],
+      [[2,0],[2,1],[2,2],[2,3]],
+      [[0,2],[1,2],[2,2],[3,2]],
+      [[1,0],[1,1],[1,2],[1,3]],
+    ],
+    O: [
+      [[1,0],[2,0],[1,1],[2,1]],
+      [[1,0],[2,0],[1,1],[2,1]],
+      [[1,0],[2,0],[1,1],[2,1]],
+      [[1,0],[2,0],[1,1],[2,1]],
+    ],
+    T: [
+      [[1,0],[0,1],[1,1],[2,1]],
+      [[1,0],[1,1],[2,1],[1,2]],
+      [[0,1],[1,1],[2,1],[1,2]],
+      [[1,0],[0,1],[1,1],[1,2]],
+    ],
+    S: [
+      [[1,0],[2,0],[0,1],[1,1]],
+      [[1,0],[1,1],[2,1],[2,2]],
+      [[1,1],[2,1],[0,2],[1,2]],
+      [[0,0],[0,1],[1,1],[1,2]],
+    ],
+    Z: [
+      [[0,0],[1,0],[1,1],[2,1]],
+      [[2,0],[1,1],[2,1],[1,2]],
+      [[0,1],[1,1],[1,2],[2,2]],
+      [[1,0],[0,1],[1,1],[0,2]],
+    ],
+    J: [
+      [[0,0],[0,1],[1,1],[2,1]],
+      [[1,0],[2,0],[1,1],[1,2]],
+      [[0,1],[1,1],[2,1],[2,2]],
+      [[1,0],[1,1],[0,2],[1,2]],
+    ],
+    L: [
+      [[2,0],[0,1],[1,1],[2,1]],
+      [[1,0],[1,1],[1,2],[2,2]],
+      [[0,1],[1,1],[2,1],[0,2]],
+      [[0,0],[1,0],[1,1],[1,2]],
+    ],
+  };
+
+  const KICKS = [[0,0],[-1,0],[1,0],[0,-1],[-2,0],[2,0]];
+
+  // ---------- ピース列（7種1袋） ----------
+  let sequence = [];
+  function shuffledBag(){
+    const bag = [...TYPES];
+    for(let i=bag.length-1;i>0;i--){
+      const j = Math.floor(Math.random()*(i+1));
+      [bag[i],bag[j]] = [bag[j],bag[i]];
+    }
+    return bag;
+  }
+  function getSeq(i){
+    while(sequence.length <= i) sequence.push(...shuffledBag());
+    return sequence[i];
+  }
+
+  // ---------- ボード生成 ----------
+  function createBoard(name, canvas){
+    return {
+      name, canvas, ctx: canvas.getContext("2d"),
+      grid: Array.from({length: ROWS}, () => Array(COLS).fill(null)),
+      piece: null,
+      active: false,
+      locked: true,
+      linesThisWave: 0,
+    };
+  }
+
+  const boards = {
+    left:   createBoard("left",   document.getElementById("canvasLeft")),
+    center: createBoard("center", document.getElementById("canvasCenter")),
+    right:  createBoard("right",  document.getElementById("canvasRight")),
+  };
+  const order = [boards.center, boards.right, boards.left];
+  const nextCtx = document.getElementById("nextCanvas").getContext("2d");
+
+  // ---------- 状態 ----------
+  let cellSize = 20;
+  let waveNumber = 0;
+  let score = 0, linesTotal = 0, level = 1;
+  let gameOver = false, paused = false, running = false;
+  let dropAccumulator = 0, dropInterval = 1200;
+  let lastTime = null;
+
+  // ゲームモード: "playing" | "bonusSelect"
+  let mode = "playing";
+  let bonusStock = 0;
+  let scoreBonusCount = 0;
+  let fiveRowBonusPending = false;
+
+  // ボーナス選択中の状態
+  let bonusRow = 0;
+  let bonusBandSize = 3;
+  let bonusScored = true;
+  let bonusOnConfirm = null;
+
+  // ---------- 当たり判定 ----------
+  function collides(board, piece, dx=0, dy=0, rotOverride=null){
+    const rot = rotOverride===null ? piece.rot : rotOverride;
+    const cells = SHAPES[piece.type][rot];
+    for(const [cx,cy] of cells){
+      const x = piece.x + cx + dx;
+      const y = piece.y + cy + dy;
+      if(x < 0 || x >= COLS || y >= ROWS) return true;
+      if(y >= 0 && board.grid[y][x]) return true;
+    }
+    return false;
+  }
+
+  function ghostY(board){
+    const p = board.piece;
+    let gy = p.y;
+    while(!collides(board, p, 0, (gy - p.y) + 1)) gy++;
+    return gy;
+  }
+
+  // ---------- ウェーブ管理 ----------
+  function spawnOnBoard(board, type, rotIndex){
+    board.piece = { type, rot: rotIndex % 4, x: 3, y: -1 };
+    board.active = true;
+    board.locked = false;
+    if(collides(board, board.piece, 0, 0)){
+      endGame();
+    }
+  }
+
+  function updateNextPreview(){
+    const nextType = getSeq(waveNumber);
+    nextCtx.clearRect(0, 0, 56, 56);
+    const cs = 12, offset = 4;
+    const shape = SHAPES[nextType][0];
+    nextCtx.fillStyle = COLORS[nextType];
+    for(const [cx,cy] of shape){
+      nextCtx.fillRect(offset + cx*cs + 1, offset + cy*cs + 1, cs - 2, cs - 2);
+    }
+  }
+
+  function startWave(){
+    if(gameOver) return;
+    waveNumber++;
+    document.getElementById("waveVal").textContent = waveNumber;
+    const pieceCR = getSeq(waveNumber - 1);
+    spawnOnBoard(boards.center, pieceCR, 0);
+    spawnOnBoard(boards.right, pieceCR, 1);
+
+    const standby = document.getElementById("standbyLeft");
+    if(waveNumber >= 2){
+      const pieceL = getSeq(waveNumber - 2);
+      spawnOnBoard(boards.left, pieceL, 0);
+      standby.style.display = "none";
+    } else {
+      boards.left.active = false;
+      boards.left.locked = true;
+      boards.left.piece = null;
+      standby.style.display = "flex";
+    }
+    updateNextPreview();
+    pulseLinkBar();
+  }
+
+  function relevantBoards(){
+    return waveNumber >= 2 ? [boards.center, boards.right, boards.left] : [boards.center, boards.right];
+  }
+
+  function lockBoardOnly(board){
+    const p = board.piece;
+    const cells = SHAPES[p.type][p.rot];
+    for(const [cx,cy] of cells){
+      const x = p.x + cx, y = p.y + cy;
+      if(y >= 0) board.grid[y][x] = COLORS[p.type];
+    }
+    board.linesThisWave = clearLines(board);
+    board.locked = true;
+    board.active = false;
+    board.piece = null;
+  }
+
+  function clearLines(board){
+    let cleared = 0;
+    for(let y = ROWS - 1; y >= 0; y--){
+      if(board.grid[y].every(c => c)){
+        board.grid.splice(y, 1);
+        board.grid.unshift(Array(COLS).fill(null));
+        cleared++;
+        y++;
+      }
+    }
+    return cleared;
+  }
+
+  // 任意の連続N行を全盤面から強制的に消去する(ボーナス演出)
+  function clearRowsAcrossBoards(topRow, bandSize){
+    for(const b of order){
+      b.grid.splice(topRow, bandSize);
+      const empties = [];
+      for(let i = 0; i < bandSize; i++) empties.push(Array(COLS).fill(null));
+      b.grid.unshift(...empties);
+    }
+  }
+
+  function countFilledCells(topRow, bandSize){
+    let count = 0;
+    for(const b of order){
+      for(let y = topRow; y < topRow + bandSize; y++){
+        if(y < 0 || y >= ROWS) continue;
+        for(let x = 0; x < COLS; x++) if(b.grid[y][x]) count++;
+      }
+    }
+    return count;
+  }
+
+  const LINE_SCORE = {0:0, 1:100, 2:300, 3:500, 4:800};
+
+  function levelFactor(lv){
+    return lv === 1 ? 1.0 : 1 + 0.1 * lv;
+  }
+
+  function scoreThreshold(n){
+    return 1000 * n * (n + 1) / 2;
+  }
+
+  function isBonusWave(w){
+    if(w === 20) return true;
+    if(w >= 50 && w % 50 === 0) return true;
+    return false;
+  }
+
+  function finalizeWave(){
+    const boardsList = relevantBoards();
+    let waveScore = 0;
+    let clearedCount = 0;
+    for(const b of boardsList){
+      waveScore += Math.round((LINE_SCORE[b.linesThisWave] || 0) * levelFactor(level));
+      linesTotal += b.linesThisWave;
+      if(b.linesThisWave > 0) clearedCount++;
+    }
+    let multiplier = 1;
+    if(clearedCount >= 3){ multiplier = 7; fiveRowBonusPending = true; }
+    else if(clearedCount === 2) multiplier = 3;
+
+    if(waveScore > 0){
+      score += waveScore * multiplier;
+      if(multiplier > 1) showBonus(multiplier);
+    }
+    for(const b of boardsList) b.linesThisWave = 0;
+
+    level = 1 + Math.floor(linesTotal / 10);
+    dropInterval = Math.max(30, 1200 - (level - 1) * 60);
+
+    document.getElementById("scoreVal").textContent = score;
+    document.getElementById("levelVal").textContent = level;
+    document.getElementById("linesVal").textContent = linesTotal;
+  }
+
+  function grantBonusIfNeeded(){
+    let earned = false;
+    while(score >= scoreThreshold(scoreBonusCount + 1)){
+      scoreBonusCount++;
+      earned = true;
+    }
+    const nextWave = waveNumber + 1;
+    if(isBonusWave(nextWave)) earned = true;
+    if(earned && bonusStock < 1){
+      bonusStock = 1;
+      updateBonusStockUI();
+      flashStockGained();
+    }
+  }
+
+  function updateBonusStockUI(){
+    const btn = document.getElementById("btnUseBonus");
+    btn.textContent = "3列消去 (" + bonusStock + ")";
+    if(bonusStock >= 1) btn.classList.remove("disabled");
+    else btn.classList.add("disabled");
+  }
+
+  function flashStockGained(){
+    const btn = document.getElementById("btnUseBonus");
+    btn.classList.add("flash");
+    setTimeout(() => btn.classList.remove("flash"), 700);
+  }
+
+  function checkWaveComplete(){
+    if(relevantBoards().every(b => b.locked)){
+      finalizeWave();
+      if(gameOver) return;
+      grantBonusIfNeeded();
+      if(fiveRowBonusPending){
+        fiveRowBonusPending = false;
+        openBonusSelect(5, false, startWave);
+      } else {
+        startWave();
+      }
+    }
+  }
+
+  function showBonus(multiplier){
+    const targets = ["toastCenter", "toastRight"];
+    if(waveNumber >= 2) targets.push("toastLeft");
+    for(const id of targets){
+      const el = document.getElementById(id);
+      el.textContent = multiplier + "x!";
+      el.classList.add("show");
+      setTimeout(() => el.classList.remove("show"), 700);
+    }
+  }
+
+  function pulseLinkBar(){
+    const bar = document.getElementById("linkBar");
+    bar.classList.add("pulse");
+    setTimeout(() => bar.classList.remove("pulse"), 180);
+  }
+
+  // ---------- ボーナス選択(共通: 3列ストック消費 / 5列即時) ----------
+  function activateStock(){
+    if(mode !== "playing" || !running || gameOver || bonusStock < 1) return;
+    bonusStock = 0;
+    updateBonusStockUI();
+    openBonusSelect(3, true, null);
+  }
+
+  function openBonusSelect(bandSize, scored, onConfirm){
+    mode = "bonusSelect";
+    bonusBandSize = bandSize;
+    bonusScored = scored;
+    bonusOnConfirm = onConfirm;
+    bonusRow = Math.max(0, ROWS - bandSize);
+    document.getElementById("bonusTitle").textContent =
+      bandSize === 5 ? "3盤面同時消去ボーナス！5列消去(即時消費・スコア加算なし)" : "3列消去ボーナス使用中";
+    document.getElementById("bonusHint").textContent =
+      scored ? "↑↓で位置を選び、決定で消去(消したブロック数×5×レベルを加算)" : "↑↓で位置を選び、決定で消去します";
+    document.getElementById("bonusConfirm").textContent = "この" + bandSize + "列を消す";
+    document.getElementById("bonusBanner").classList.add("show");
+  }
+
+  function moveBonusRow(dy){
+    if(mode !== "bonusSelect") return;
+    bonusRow = Math.max(0, Math.min(ROWS - bonusBandSize, bonusRow + dy));
+  }
+
+  function confirmBonusClear(){
+    if(mode !== "bonusSelect") return;
+    if(bonusScored){
+      const cells = countFilledCells(bonusRow, bonusBandSize);
+      const gained = cells * 5 * level;
+      score += gained;
+      document.getElementById("scoreVal").textContent = score;
+    }
+    clearRowsAcrossBoards(bonusRow, bonusBandSize);
+    document.getElementById("bonusBanner").classList.remove("show");
+    mode = "playing";
+    const cb = bonusOnConfirm;
+    bonusOnConfirm = null;
+    if(cb) cb();
+  }
+
+  // ---------- 操作 ----------
+  function activeBoards(){
+    return order.filter(b => b.active && !b.locked);
+  }
+
+  function moveAll(dx){
+    if(gameOver || paused || mode !== "playing") return;
+    for(const b of activeBoards()){
+      if(!collides(b, b.piece, dx, 0)) b.piece.x += dx;
+    }
+  }
+
+  function rotateAll(){
+    if(gameOver || paused || mode !== "playing") return;
+    for(const b of activeBoards()){
+      const p = b.piece;
+      const newRot = (p.rot + 1) % 4;
+      for(const [kx,ky] of KICKS){
+        if(!collides(b, p, kx, ky, newRot)){
+          p.rot = newRot; p.x += kx; p.y += ky;
+          break;
+        }
+      }
+    }
+  }
+
+  function softDropStep(){
+    if(gameOver || paused || mode !== "playing") return;
+    const targets = activeBoards();
+    let anyLocked = false;
+    for(const b of targets){
+      if(!collides(b, b.piece, 0, 1)){
+        b.piece.y += 1;
+        score += 1;
+      } else {
+        lockBoardOnly(b);
+        anyLocked = true;
+      }
+    }
+    document.getElementById("scoreVal").textContent = score;
+    if(anyLocked) checkWaveComplete();
+  }
+
+  function hardDropAll(){
+    if(gameOver || paused || mode !== "playing") return;
+    const targets = activeBoards();
+    let anyLocked = false;
+    for(const b of targets){
+      let dist = 0;
+      while(!collides(b, b.piece, 0, dist + 1)) dist++;
+      b.piece.y += dist;
+      score += dist * 2;
+      lockBoardOnly(b);
+      anyLocked = true;
+    }
+    document.getElementById("scoreVal").textContent = score;
+    if(anyLocked) checkWaveComplete();
+  }
+
+  function gravityTick(){
+    if(gameOver || paused || mode !== "playing") return;
+    const targets = activeBoards();
+    let anyLocked = false;
+    for(const b of targets){
+      if(!collides(b, b.piece, 0, 1)){
+        b.piece.y += 1;
+      } else {
+        lockBoardOnly(b);
+        anyLocked = true;
+      }
+    }
+    if(anyLocked) checkWaveComplete();
+  }
+
+  // ---------- 描画 ----------
+  function resize(){
+    const container = document.getElementById("boards");
+    const w = container.clientWidth || window.innerWidth;
+    const totalCols = COLS * 3;
+    const gaps = 10 * 2 + 8;
+    let csW = Math.floor((w - gaps) / totalCols);
+    const availH = Math.max(220, window.innerHeight * 0.5);
+    let csH = Math.floor(availH / ROWS);
+    let cs = Math.min(csW, csH);
+    cs = Math.max(8, Math.min(cs, 22));
+    cellSize = cs;
+    for(const b of order){
+      b.canvas.width = COLS * cellSize;
+      b.canvas.height = ROWS * cellSize;
+    }
+    drawAll();
+  }
+
+  function drawBoard(board){
+    const ctx = board.ctx;
+    const w = board.canvas.width, h = board.canvas.height;
+    ctx.clearRect(0, 0, w, h);
+
+    ctx.strokeStyle = "rgba(255,255,255,0.045)";
+    ctx.lineWidth = 1;
+    for(let x = 0; x <= COLS; x++){
+      ctx.beginPath();
+      ctx.moveTo(x * cellSize + 0.5, 0);
+      ctx.lineTo(x * cellSize + 0.5, h);
+      ctx.stroke();
+    }
+    for(let y = 0; y <= ROWS; y++){
+      ctx.beginPath();
+      ctx.moveTo(0, y * cellSize + 0.5);
+      ctx.lineTo(w, y * cellSize + 0.5);
+      ctx.stroke();
+    }
+
+    for(let y = 0; y < ROWS; y++){
+      for(let x = 0; x < COLS; x++){
+        const c = board.grid[y][x];
+        if(c) drawCell(ctx, x, y, c, 1);
+      }
+    }
+
+    if(board.active && !board.locked && board.piece){
+      const p = board.piece;
+      const gy = ghostY(board);
+      const cells = SHAPES[p.type][p.rot];
+      for(const [cx,cy] of cells){
+        const gx2 = p.x + cx, gy2 = gy + cy;
+        if(gy2 >= 0) drawCell(ctx, gx2, gy2, COLORS[p.type], 0.22, true);
+      }
+      for(const [cx,cy] of cells){
+        const x = p.x + cx, y = p.y + cy;
+        if(y >= 0) drawCell(ctx, x, y, COLORS[p.type], 1);
+      }
+    }
+
+    if(mode === "bonusSelect"){
+      ctx.fillStyle = "rgba(244,211,94,0.28)";
+      ctx.fillRect(0, bonusRow * cellSize, w, cellSize * bonusBandSize);
+      ctx.strokeStyle = "rgba(244,211,94,0.9)";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(1, bonusRow * cellSize + 1, w - 2, cellSize * bonusBandSize - 2);
+    }
+  }
+
+  function drawCell(ctx, x, y, color, alpha, outlineOnly){
+    const px = x * cellSize, py = y * cellSize;
+    ctx.globalAlpha = alpha;
+    if(outlineOnly){
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(px + 2, py + 2, cellSize - 4, cellSize - 4);
+    } else {
+      ctx.fillStyle = color;
+      ctx.fillRect(px + 1, py + 1, cellSize - 2, cellSize - 2);
+      ctx.fillStyle = "rgba(255,255,255,0.18)";
+      ctx.fillRect(px + 1, py + 1, cellSize - 2, Math.max(2, cellSize * 0.18));
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawAll(){
+    for(const b of order) drawBoard(b);
+  }
+
+  // ---------- ゲームループ ----------
+  function loop(ts){
+    if(!lastTime) lastTime = ts;
+    const delta = ts - lastTime;
+    lastTime = ts;
+    if(running && !gameOver && !paused && mode === "playing"){
+      dropAccumulator += delta;
+      if(dropAccumulator >= dropInterval){
+        dropAccumulator = 0;
+        gravityTick();
+      }
+    }
+    drawAll();
+    requestAnimationFrame(loop);
+  }
+
+  // ---------- 開始・終了・リスタート ----------
+  function endGame(){
+    gameOver = true;
+    running = false;
+    const overlay = document.getElementById("overlay");
+    overlay.classList.remove("hidden");
+    document.getElementById("startCard").innerHTML =
+      '<h2>Game Over!</h2>' +
+      '<p>盤面が積み上がりました。</p>' +
+      '<p class="final-score">' + score + ' 点</p>' +
+      '<button class="primary-btn" id="restartBtn">Try Again</button>';
+    document.getElementById("restartBtn").addEventListener("click", resetGame);
+  }
+
+  function resetGame(){
+    sequence = [];
+    for(const b of order){
+      b.grid = Array.from({length: ROWS}, () => Array(COLS).fill(null));
+      b.piece = null; b.active = false; b.locked = true; b.linesThisWave = 0;
+    }
+    waveNumber = 0; score = 0; linesTotal = 0; level = 1;
+    dropInterval = 1200; dropAccumulator = 0;
+    gameOver = false; paused = false; running = true;
+    mode = "playing"; bonusStock = 0; scoreBonusCount = 0; fiveRowBonusPending = false;
+    bonusRow = 0; bonusBandSize = 3; bonusScored = true; bonusOnConfirm = null;
+    document.getElementById("bonusBanner").classList.remove("show");
+    updateBonusStockUI();
+    document.getElementById("scoreVal").textContent = 0;
+    document.getElementById("levelVal").textContent = 1;
+    document.getElementById("linesVal").textContent = 0;
+    document.getElementById("waveVal").textContent = 0;
+    document.getElementById("overlay").classList.add("hidden");
+    document.getElementById("btnPause").textContent = "一時停止";
+    resize();
+    startWave();
+  }
+
+  function togglePause(){
+    if(gameOver || !running || mode !== "playing") return;
+    paused = !paused;
+    document.getElementById("btnPause").textContent = paused ? "再開" : "一時停止";
+  }
+
+  function showRestartConfirm(){
+    if(!running && !gameOver){
+      resetGame();
+      return;
+    }
+    const wasPaused = paused;
+    paused = true;
+    const overlay = document.getElementById("overlay");
+    overlay.classList.remove("hidden");
+    document.getElementById("startCard").innerHTML =
+      '<h2>リスタートしますか？</h2>' +
+      '<p>現在のスコアや進行状況は失われます。</p>' +
+      '<button class="primary-btn" id="confirmRestartBtn">リスタートする</button>' +
+      '<button class="primary-btn secondary" id="cancelRestartBtn">キャンセル</button>';
+    document.getElementById("confirmRestartBtn").addEventListener("click", resetGame);
+    document.getElementById("cancelRestartBtn").addEventListener("click", () => {
+      overlay.classList.add("hidden");
+      paused = wasPaused;
+    });
+  }
+
+  // ---------- 入力 ----------
+  window.addEventListener("keydown", (e) => {
+    if(["ArrowLeft","ArrowRight","ArrowDown","ArrowUp","Space"," "].includes(e.key) || e.code === "Space"){
+      e.preventDefault();
+    }
+    if(mode === "bonusSelect"){
+      if(e.key === "ArrowUp") moveBonusRow(-1);
+      else if(e.key === "ArrowDown") moveBonusRow(1);
+      else if(e.code === "Space" || e.key === "Enter") confirmBonusClear();
+      return;
+    }
+    if(e.key === "ArrowLeft") moveAll(-1);
+    else if(e.key === "ArrowRight") moveAll(1);
+    else if(e.key === "ArrowDown") softDropStep();
+    else if(e.key === "ArrowUp" || e.key === "x" || e.key === "X") rotateAll();
+    else if(e.code === "Space") hardDropAll();
+    else if(e.key === "p" || e.key === "P") togglePause();
+    else if(e.key === "b" || e.key === "B") activateStock();
+  });
+
+  function bindPad(id, fn){
+    const el = document.getElementById(id);
+    el.addEventListener("touchstart", (e) => { e.preventDefault(); fn(); }, {passive:false});
+    el.addEventListener("click", fn);
+  }
+  bindPad("btnLeft", () => moveAll(-1));
+  bindPad("btnRight", () => moveAll(1));
+  bindPad("btnRotate", () => rotateAll());
+  bindPad("btnSoft", () => softDropStep());
+  bindPad("btnHard", () => hardDropAll());
+  bindPad("btnPause", () => togglePause());
+  bindPad("btnUseBonus", () => activateStock());
+  bindPad("btnRestart", () => showRestartConfirm());
+  bindPad("bonusUp", () => moveBonusRow(-1));
+  bindPad("bonusDown", () => moveBonusRow(1));
+  bindPad("bonusConfirm", () => confirmBonusClear());
+
+  document.getElementById("startBtn").addEventListener("click", () => {
+    document.getElementById("overlay").classList.add("hidden");
+    resetGame();
+  });
+
+  window.addEventListener("resize", resize);
+
+  // ---------- 初期化 ----------
+  resize();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
