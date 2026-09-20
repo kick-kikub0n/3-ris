@@ -503,7 +503,10 @@
   function showInfoOverlay(){
     playButtonBeepSE();
     const wasPaused = paused;
-    if(running && !gameOver && mode === "playing") paused = true;
+    if(running && !gameOver && mode === "playing"){
+      paused = true;
+    }
+    duckBgm();
     const overlay = document.getElementById("overlay");
     overlay.classList.remove("hidden");
     const S = STRINGS[lang];
@@ -514,6 +517,7 @@
     document.getElementById("closeInfoBtn").addEventListener("click", () => {
       overlay.classList.add("hidden");
       paused = wasPaused;
+      restoreBgmVolume();
     });
   }
 
@@ -921,6 +925,7 @@
       const x = p.x + cx, y = p.y + cy;
       if(y >= 0) board.grid[y][x] = COLORS[p.type];
     }
+    checkBgmStackHeight();
     board.linesThisWave = clearLines(board);
 
     // B2B(バックトゥーバック): 4ライン消しかTスピン(ライン付き)を"難しい消去"とし、
@@ -1764,7 +1769,13 @@
     soundEnabled = !soundEnabled;
     try{ localStorage.setItem(SOUND_PREF_KEY, String(soundEnabled)); }catch(e){}
     updateSoundButtonUI();
-    if(soundEnabled) getAudioCtx();
+    if(soundEnabled){
+      getAudioCtx();
+      setBgmVolume(bgmDucked ? BGM_DUCK_VOLUME : BGM_VOLUME);
+      if(running && !gameOver) resumeBgm();
+    } else {
+      pauseBgm();
+    }
   }
 
   // ---------- 模様ON/OFF(色覚多様性配慮、localStorageに設定を保存) ----------
@@ -1805,6 +1816,104 @@
     }
     if(audioCtx.state === "suspended") audioCtx.resume();
     return audioCtx;
+  }
+
+  // ---------- BGM(ゲーム中のみ再生) ----------
+  const BGM_TRACKS = ["assets/3'ris_bgm1.ogg", "assets/3'ris_bgm2.ogg"];
+  const BGM_VOLUME = 0.15;
+  const BGM_DUCK_VOLUME = 0.05;
+  const BGM_FAST_RATE = 1.25;
+  const BGM_FASTER_RATE = 1.5;
+  const BGM_LOOP_TAIL_SECONDS = 3;
+  const bgmAudio = new Audio();
+  let bgmTrackIndex = 0;
+  let bgmLoopEnd = 0;
+  let bgmSpeedTier = 1;
+  let bgmDucked = false;
+
+  bgmAudio.preload = "auto";
+  bgmAudio.volume = BGM_VOLUME;
+  bgmAudio.addEventListener("loadedmetadata", () => {
+    bgmLoopEnd = bgmAudio.duration > BGM_LOOP_TAIL_SECONDS
+      ? bgmAudio.duration - BGM_LOOP_TAIL_SECONDS
+      : 0;
+  });
+  bgmAudio.addEventListener("timeupdate", () => {
+    if(bgmLoopEnd > 0 && bgmAudio.currentTime >= bgmLoopEnd){
+      bgmAudio.currentTime = 0;
+      if(soundEnabled && running && !gameOver && !paused) bgmAudio.play().catch(() => {});
+    }
+  });
+  bgmAudio.addEventListener("ended", () => {
+    bgmAudio.currentTime = 0;
+    if(soundEnabled && running && !gameOver && !paused) bgmAudio.play().catch(() => {});
+  });
+
+  function startBgm(){
+    pauseBgm();
+    bgmAudio.src = BGM_TRACKS[bgmTrackIndex];
+    bgmTrackIndex = (bgmTrackIndex + 1) % BGM_TRACKS.length;
+    bgmAudio.playbackRate = 1;
+    bgmLoopEnd = 0;
+    bgmSpeedTier = 1;
+    bgmDucked = false;
+    bgmAudio.volume = BGM_VOLUME;
+    if(!soundEnabled) return;
+    bgmAudio.load();
+    bgmAudio.play().catch(() => {});
+  }
+
+  function pauseBgm(){
+    bgmAudio.pause();
+  }
+
+  function resumeBgm(){
+    if(!soundEnabled || !running || gameOver || paused) return;
+    if(!bgmAudio.src){
+      startBgm();
+      return;
+    }
+    bgmAudio.play().catch(() => {});
+  }
+
+  function stopBgm(){
+    bgmAudio.pause();
+    bgmAudio.removeAttribute("src");
+    bgmAudio.load();
+    bgmLoopEnd = 0;
+    bgmSpeedTier = 1;
+    bgmDucked = false;
+  }
+
+  function setBgmVolume(volume){
+    bgmAudio.volume = soundEnabled ? volume : 0;
+  }
+
+  function duckBgm(){
+    bgmDucked = true;
+    setBgmVolume(BGM_DUCK_VOLUME);
+  }
+
+  function restoreBgmVolume(){
+    bgmDucked = false;
+    setBgmVolume(BGM_VOLUME);
+  }
+
+  function updateBgmSpeed(stackHeight){
+    const nextTier = stackHeight >= 17 ? 3 : (stackHeight >= 13 ? 2 : 1);
+    if(nextTier <= bgmSpeedTier) return;
+    bgmSpeedTier = nextTier;
+    bgmAudio.playbackRate = nextTier === 3 ? BGM_FASTER_RATE : BGM_FAST_RATE;
+  }
+
+  function checkBgmStackHeight(){
+    const stackHeight = Math.max(...order.map(board => {
+      for(let y = 0; y < ROWS; y++){
+        if(board.grid[y].some(cell => cell)) return ROWS - y;
+      }
+      return 0;
+    }));
+    updateBgmSpeed(stackHeight);
   }
 
   // 「ピッ」: UIボタン(一時停止・説明・模様・ホールド・ボーナス関連)を押した際の短い操作音
@@ -2480,6 +2589,7 @@
     if(gameOver) return;
     gameOver = true;
     running = false;
+    stopBgm();
     registerFinalScore(score);
     gameOverEffect = { startTs: performance.now() };
     playImpactSound();
@@ -2523,6 +2633,7 @@
     waveNumber = 0; score = 0; linesTotal = 0; level = 1; comboCount = 0; canHold = true;
     dropInterval = 1200; dropAccumulator = 0;
     gameOver = false; paused = false; running = true;
+    startBgm();
     gameOverEffect = null;
     mode = "playing"; bonusStock = 0; scoreBonusCount = 0; fiveRowBonusPending = false;
     bonusRow = 0; bonusBandSize = 3; bonusScored = true; bonusOnConfirm = null; bonusConsumesStock = false;
@@ -2555,6 +2666,7 @@
     }
     const wasPaused = paused;
     paused = true;
+    duckBgm();
     const overlay = document.getElementById("overlay");
     overlay.classList.remove("hidden");
     const S = STRINGS[lang];
@@ -2571,6 +2683,7 @@
       playButtonBeepSE();
       overlay.classList.add("hidden");
       paused = wasPaused;
+      restoreBgmVolume();
     });
   }
 
