@@ -995,6 +995,7 @@
     for(const b of order){
       if(b.clearingRows && ts - b.clearAnimStart >= clearDurationFor(b.clearAnimTier)){
         resolveClearedRows(b);
+        checkBgmStackHeight();
         resolvedAny = true;
       }
     }
@@ -1901,9 +1902,9 @@
 
   function updateBgmSpeed(stackHeight){
     const nextTier = stackHeight >= 17 ? 3 : (stackHeight >= 13 ? 2 : 1);
-    if(nextTier <= bgmSpeedTier) return;
+    if(nextTier === bgmSpeedTier) return;
     bgmSpeedTier = nextTier;
-    bgmAudio.playbackRate = nextTier === 3 ? BGM_FASTER_RATE : BGM_FAST_RATE;
+    bgmAudio.playbackRate = nextTier === 3 ? BGM_FASTER_RATE : (nextTier === 2 ? BGM_FAST_RATE : 1);
   }
 
   function checkBgmStackHeight(){
