@@ -20,7 +20,11 @@
   }
   *{box-sizing:border-box;}
   html,body{
-    margin:0; padding:0; background:var(--bg); color:var(--text);
+    margin:0; padding:0; background-color:var(--bg); color:var(--text);
+    background-image: linear-gradient(rgba(13,15,26,0.72), rgba(13,15,26,0.72)), url("assets/3'ris_bg1.png");
+    background-size: cover;
+    background-position: center top;
+    background-attachment: fixed;
     font-family: system-ui, -apple-system, "Hiragino Sans", "Yu Gothic", sans-serif;
     -webkit-tap-highlight-color: transparent;
     overscroll-behavior: none;
@@ -390,7 +394,7 @@
         "3盤面は同じ操作で連動して動き、どれか1つでも盤面が積み上がったら終了",
         "ホールド(Cキー)は3盤面同時に入れ替え(ウェーブ2以降使用可能・1手につき1回)",
         "2盤面／3盤面同時でラインを消去するとスコアボーナス",
-        "一定ウェーブ／スコア到達で3列消去ボーナスを獲得、1つまでストック・任意で発動可能"
+        "一定ウェーブ／スコア到達で横3列消去ボーナスを獲得、1つまでストック・任意で発動可能"
       ],
       close: "閉じる",
       bonusTitle5: "3盤面同時消去ボーナス！5列消去(即時消費・スコア加算なし)",
