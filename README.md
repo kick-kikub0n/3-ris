@@ -1,4 +1,4 @@
-【日本語 version】※The English version is provided below.
+【日本語バージョン】※The English version is provided below.
 
 # 3'ris - 3盤面連動落ち物パズル
 
