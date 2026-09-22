@@ -54,6 +54,7 @@
 ### 背景画像
 
 - `assets/3'ris_bg1.png`
+- `assets/3'ris_bg2.png`
 - ChatGPT 無料版を使用して生成・作成
 
 ### BGM
@@ -143,6 +144,7 @@ Use the buttons at the bottom of the game screen, and some buttons at the top, t
 ### Background Image
 
 - `assets/3'ris_bg1.png`
+- `assets/3'ris_bg2.png`
 - Generated and created using the free version of ChatGPT
 
 ### BGM

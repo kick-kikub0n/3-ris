@@ -231,6 +231,23 @@
     display:flex; align-items:center; justify-content:center; z-index: 20;
     padding: 20px;
   }
+  #overlay.title-screen{
+    align-items:flex-end;
+    background-color: #060910;
+    background-image: linear-gradient(rgba(6,9,16,0.2), rgba(6,9,16,0.2)), url("assets/3'ris_bg2.png");
+    background-size: auto 99.9999%;
+    background-repeat: no-repeat;
+    background-position: center top;
+  }
+  #overlay.title-screen .card{
+    margin-bottom: clamp(28px, 8vh, 80px);
+    background: var(--panel);
+  }
+  #overlay.title-screen #startEnBtn{
+    background: var(--gold);
+    color: #221a00;
+    border: none;
+  }
   #overlay.hidden{ display:none; }
   .card{
     background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
@@ -362,7 +379,7 @@
   </div>
 </div>
 
-<div id="overlay">
+<div id="overlay" class="title-screen">
   <div class="card" id="startCard">
     <h2 style="text-align:center;">3'ris</h2>
     <div class="hs-box" id="startHighScores"></div>
@@ -2783,6 +2800,7 @@
     lang = "ja";
     getAudioCtx(); // 初回のユーザー操作でAudioContextを起動しておく
     playGameStartSE();
+    document.getElementById("overlay").classList.remove("title-screen");
     document.getElementById("overlay").classList.add("hidden");
     resetGame();
   });
@@ -2790,6 +2808,7 @@
     lang = "en";
     getAudioCtx();
     playGameStartSE();
+    document.getElementById("overlay").classList.remove("title-screen");
     document.getElementById("overlay").classList.add("hidden");
     resetGame();
   });
