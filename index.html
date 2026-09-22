@@ -2656,6 +2656,8 @@
     if(gameOver || !running || mode !== "playing") return;
     playButtonBeepSE();
     paused = !paused;
+    if(paused) pauseBgm();
+    else resumeBgm();
     document.getElementById("btnPause").textContent = paused ? STRINGS[lang].resume : STRINGS[lang].pause;
   }
 
